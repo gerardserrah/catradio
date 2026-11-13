@@ -13,7 +13,18 @@
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 
   <style>
+    @font-face {
+      font-family: "Bw3Cat-Regular";
+      src: url("/fonts/Bw3Cat-Regular.woff2") format("woff2"),
+           url("/fonts/Bw3Cat-Regular.ttf") format("truetype"),
+           url("/fonts/Bw3Cat-Regular.otf") format("opentype");
+      font-weight: 100 900;
+      font-style: normal;
+      font-display: swap;
+    }
+
     :root {
+      --font-main: "Bw3Cat-Regular", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
       --bg: #0a0a0a;
       --card-bg: #141414;
       --border: #262626;
@@ -36,7 +47,7 @@
       height: 100%;
       background-color: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      font-family: var(--font-main);
       overflow: hidden;
     }
 
@@ -314,16 +325,9 @@
       margin-bottom: 8px;
     }
 
-    .skip-btn {
-      background: transparent;
-      border: 1px solid #2e2e2e;
-      color: #e5e7eb;
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s ease;
+    .timeshift-hidden {
+      visibility: hidden;
+      pointer-events: none;
     }
 
     .skip-btn:active {
@@ -446,8 +450,8 @@
       <div class="territorial-row" id="territorialRow">
         <span>Connexió territorial:</span>
         <select class="territorial-select" id="territorialSelect">
-          <option value="barcelona">Barcelona</option>
-          <option value="girona" selected>Girona</option>
+          <option value="barcelona" selected>Barcelona</option>
+          <option value="girona">Girona</option>
           <option value="lleida">Lleida</option>
           <option value="tarragona">Tarragona</option>
         </select>
@@ -467,7 +471,7 @@
 
     <!-- Controls de reproducció i Timeshift -->
     <div>
-      <div class="timeshift-box">
+      <div class="timeshift-box" id="timeshiftBox">
         <div class="time-labels">
           <div>
             <span id="listeningClock">--:--:--</span>
@@ -475,7 +479,6 @@
           </div>
           <div>
             <button class="live-jump-btn" id="liveJumpBtn">• DIRECTE</button>
-            <span id="dvrRangeLabel"></span>
           </div>
         </div>
         <input type="range" class="scrubber" id="scrubber" min="0" max="100" value="100" step="1" />
@@ -580,17 +583,22 @@
     const artwork = document.getElementById("artwork");
     const territorialRow = document.getElementById("territorialRow");
     const territorialSelect = document.getElementById("territorialSelect");
+    const timeshiftBox = document.getElementById("timeshiftBox");
+    const back10Btn = document.getElementById("back10Btn");
+    const fwd10Btn = document.getElementById("fwd10Btn");
     const listeningClock = document.getElementById("listeningClock");
     const lagTag = document.getElementById("lagTag");
-    const dvrRangeLabel = document.getElementById("dvrRangeLabel");
     const liveJumpBtn = document.getElementById("liveJumpBtn");
     const scrubber = document.getElementById("scrubber");
 
+    const STREAM_DELAY_SECONDS = 10; // Compensació del retard habitual del flux HLS
     let currentStation = "catradio";
     let isPlaying = false;
     let hlsInstance = null;
     let isScrubbing = false;
     let manualLagSeconds = 0;
+    let activeStreamUrl = null;
+    let stallCounter = 0;
     let watchdogTimer = null;
     let clockTimer = null;
     let metadataTimer = null;
@@ -626,15 +634,28 @@
     function setArtworkSafe(url, fallbackLogo) {
       if (url && !url.endsWith(".svg")) {
         artwork.classList.remove("is-logo-fallback");
-        artwork.src = url;
         artwork.onerror = () => {
+          artwork.onerror = null;
           artwork.classList.add("is-logo-fallback");
           artwork.src = fallbackLogo;
         };
+        artwork.src = url;
       } else {
+        artwork.onerror = null;
         artwork.classList.add("is-logo-fallback");
         artwork.src = fallbackLogo;
       }
+    }
+
+    function isTimeshiftSupported() {
+      return !(currentStation === "catradio" && territorialSelect.value !== "barcelona");
+    }
+
+    function updateTimeshiftVisibility() {
+      const supported = isTimeshiftSupported();
+      timeshiftBox.classList.toggle("timeshift-hidden", !supported);
+      back10Btn.classList.toggle("timeshift-hidden", !supported);
+      fwd10Btn.classList.toggle("timeshift-hidden", !supported);
     }
 
     function updateBaseUI() {
@@ -652,6 +673,7 @@
         programHost.textContent = "Emissió en directe";
       }
 
+      updateTimeshiftVisibility();
       setArtworkSafe(null, station.logo);
       syncMediaSession(station.name, programHost.textContent, null);
     }
@@ -708,10 +730,80 @@
       pauseIcon.style.display = playing ? "block" : "none";
     }
 
-    async function startPlayback() {
+    function getSeekableRange() {
+      if (audio.seekable && audio.seekable.length > 0) {
+        const start = audio.seekable.start(0);
+        const end = audio.seekable.end(audio.seekable.length - 1);
+        if (end > start) return { start, end };
+      }
+      if (audio.buffered && audio.buffered.length > 0) {
+        const start = audio.buffered.start(0);
+        const end = audio.buffered.end(audio.buffered.length - 1);
+        if (end > start) return { start, end };
+      }
+      return null;
+    }
+
+    function formatCatalanTime(dateObj) {
+      return dateObj.toLocaleTimeString("ca-ES", {
+        timeZone: "Europe/Madrid",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    }
+
+    function updateDvrClockUI() {
+      if (!isTimeshiftSupported()) return;
+      const nowMs = Date.now() - STREAM_DELAY_SECONDS * 1000;
+      const range = getSeekableRange();
+
+      if (!range || !isPlaying) {
+        listeningClock.textContent = formatCatalanTime(new Date(nowMs));
+        lagTag.textContent = "";
+        liveJumpBtn.style.display = "none";
+        return;
+      }
+
+      const lagSeconds = Math.max(0, Math.round(range.end - audio.currentTime));
+      const effectiveLag = isScrubbing ? manualLagSeconds : lagSeconds;
+      const listeningDate = new Date(nowMs - effectiveLag * 1000);
+      listeningClock.textContent = formatCatalanTime(listeningDate);
+
+      if (!isScrubbing) {
+        const span = Math.max(1, range.end - range.start);
+        const pct = Math.min(100, Math.max(0, ((audio.currentTime - range.start) / span) * 100));
+        scrubber.value = Math.round(pct);
+      }
+
+      if (effectiveLag >= 15) {
+        const mins = Math.floor(effectiveLag / 60);
+        const secs = effectiveLag % 60;
+        lagTag.textContent = mins > 0 ? `-${mins}m ${String(secs).padStart(2, "0")}s` : `-${secs}s`;
+        liveJumpBtn.style.display = "inline-block";
+      } else {
+        lagTag.textContent = "";
+        liveJumpBtn.style.display = "none";
+      }
+    }
+
+    async function startPlayback(forceReload = false) {
+      // Si ja tenim el flux carregat i només estàvem en pausa, reprenem al punt exacte (sense tornar al directe)
+      if (!forceReload && activeStreamUrl && (audio.src || hlsInstance) && audio.readyState >= 1) {
+        statusMsg.textContent = "";
+        audio.play().then(() => {
+          setPlayingState(true);
+          startWatchdog();
+        }).catch(() => {
+          startPlayback(true);
+        });
+        return;
+      }
+
       setLoading(true);
       statusMsg.textContent = "";
       manualLagSeconds = 0;
+      stallCounter = 0;
 
       if (hlsInstance) {
         hlsInstance.destroy();
@@ -719,6 +811,7 @@
       }
 
       const url = await resolveBestStreamUrl();
+      activeStreamUrl = url;
 
       // 1. Si el navegador suporta hls.js i el flux és .m3u8, activem DVR + memòria cau de 2 hores
       if (typeof Hls !== "undefined" && Hls.isSupported() && url.includes(".m3u8")) {
@@ -769,6 +862,7 @@
 
     function playFallbackMp3() {
       const mp3Url = STREAMS[currentStation].fallbackMp3;
+      activeStreamUrl = mp3Url;
       audio.src = mp3Url;
       audio.play().then(() => {
         setPlayingState(true);
@@ -779,8 +873,18 @@
       });
     }
 
-    function stopPlayback() {
+    // Pausa real: manté el buffer i la posició en el temps per no perdre el punt si vas enrere
+    function pausePlayback() {
       isPlaying = false;
+      clearInterval(watchdogTimer);
+      audio.pause();
+      setPlayingState(false);
+    }
+
+    // Aturada completa amb neteja (només en canviar d'emissora o reconnexió forçada)
+    function resetPlayback() {
+      isPlaying = false;
+      activeStreamUrl = null;
       clearInterval(watchdogTimer);
       if (hlsInstance) {
         hlsInstance.destroy();
@@ -792,99 +896,93 @@
       setPlayingState(false);
     }
 
-    // Vigilant de micro-talls
+    // Vigilant passiu: no talla l'àudio en segon pla d'iOS i recupera només si hi ha tall real
     function startWatchdog() {
       clearInterval(watchdogTimer);
       let lastTime = audio.currentTime;
+      stallCounter = 0;
+
       watchdogTimer = setInterval(() => {
         if (!isPlaying) return;
-        if (audio.paused || audio.readyState < 2 || audio.currentTime === lastTime) {
-          statusMsg.textContent = "Reconnectant senyal...";
-          startPlayback();
-        } else {
-          statusMsg.textContent = "";
+
+        if (audio.currentTime !== lastTime && !audio.paused) {
           lastTime = audio.currentTime;
+          stallCounter = 0;
+          if (statusMsg.textContent === "Reconnectant senyal...") {
+            statusMsg.textContent = "";
+          }
+          return;
         }
-      }, 7000);
-    }
 
-    // Rellotge real d'emissió i control de barra DVR
-    function formatCatalanClock(dateObj) {
-      return dateObj.toLocaleTimeString("ca-ES", {
-        timeZone: "Europe/Madrid",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      });
-    }
-
-    function formatOffset(sec) {
-      const s = Math.max(0, Math.round(sec));
-      if (s < 3) return "";
-      const mins = Math.floor(s / 60);
-      const rem = s % 60;
-      if (mins === 0) return `-${rem}s`;
-      return `-${mins}m ${String(rem).padStart(2, "0")}s`;
-    }
-
-    function getSeekableRange() {
-      if (audio.seekable && audio.seekable.length > 0) {
-        return {
-          start: audio.seekable.start(0),
-          end: audio.seekable.end(audio.seekable.length - 1)
-        };
-      }
-      if (audio.buffered && audio.buffered.length > 0) {
-        return {
-          start: audio.buffered.start(0),
-          end: audio.buffered.end(audio.buffered.length - 1)
-        };
-      }
-      return null;
-    }
-
-    function updateDvrClockUI() {
-      const range = getSeekableRange();
-      let lag = 0;
-
-      if (range && range.end - range.start > 2) {
-        const span = range.end - range.start;
-        dvrRangeLabel.textContent = span >= 60 ? `DVR ${Math.floor(span / 60)}m` : "";
-        if (!isScrubbing) {
-          const pct = Math.min(100, Math.max(0, ((audio.currentTime - range.start) / span) * 100));
-          scrubber.value = pct;
-          lag = Math.max(0, range.end - audio.currentTime);
-        } else {
-          const targetTime = range.start + (Number(scrubber.value) / 100) * span;
-          lag = Math.max(0, range.end - targetTime);
+        // Només actuem si porta encallat almenys 2 cicles seguits (~16 segons)
+        stallCounter++;
+        if (stallCounter >= 2) {
+          statusMsg.textContent = "Reconnectant senyal...";
+          const savedTime = audio.currentTime;
+          audio.play().then(() => {
+            if (savedTime > 0 && isTimeshiftSupported()) {
+              try { audio.currentTime = savedTime; } catch (e) {}
+            }
+            stallCounter = 0;
+            statusMsg.textContent = "";
+          }).catch(() => {
+            if (document.visibilityState === "visible") {
+              startPlayback(true);
+            }
+          });
         }
-      } else {
-        dvrRangeLabel.textContent = "";
-        if (!isScrubbing) scrubber.value = 100;
-      }
-
-      const emissionTime = new Date(Date.now() - lag * 1000);
-      listeningClock.textContent = formatCatalanClock(emissionTime);
-      lagTag.textContent = formatOffset(lag);
-      liveJumpBtn.style.display = lag > 6 ? "inline-block" : "none";
+      }, 8000);
     }
+
+    // Sincronització amb controls externs d'iOS (pantalla bloquejada, AirPods, CarPlay)
+    audio.addEventListener("pause", () => {
+      if (isPlaying) {
+        isPlaying = false;
+        clearInterval(watchdogTimer);
+        setPlayingState(false);
+      }
+    });
+
+    audio.addEventListener("play", () => {
+      if (!isPlaying) {
+        setPlayingState(true);
+        startWatchdog();
+      }
+    });
+
+    audio.addEventListener("error", () => {
+      if (isPlaying && document.visibilityState === "visible") {
+        statusMsg.textContent = "Recuperant connexió...";
+        startPlayback(true);
+      }
+    });
 
     scrubber.addEventListener("input", () => {
+      if (!isTimeshiftSupported()) return;
       isScrubbing = true;
-      updateDvrClockUI();
+      const range = getSeekableRange();
+      if (range) {
+        const span = range.end - range.start;
+        const targetTime = range.start + (Number(scrubber.value) / 100) * span;
+        manualLagSeconds = Math.max(0, Math.round(range.end - targetTime));
+        updateDvrClockUI();
+      }
     });
 
     scrubber.addEventListener("change", () => {
+      if (!isTimeshiftSupported()) return;
       const range = getSeekableRange();
-      if (range && range.end - range.start > 2) {
+      if (range) {
         const span = range.end - range.start;
-        audio.currentTime = range.start + (Number(scrubber.value) / 100) * span;
+        const targetTime = range.start + (Number(scrubber.value) / 100) * span;
+        audio.currentTime = Math.min(range.end, Math.max(range.start, targetTime));
       }
       isScrubbing = false;
       updateDvrClockUI();
     });
 
     document.getElementById("back10Btn").addEventListener("click", () => {
+      if (!isTimeshiftSupported()) return;
       const range = getSeekableRange();
       if (range) {
         audio.currentTime = Math.max(range.start, audio.currentTime - 10);
@@ -910,15 +1008,16 @@
 
     playBtn.addEventListener("click", () => {
       if (isPlaying) {
-        stopPlayback();
+        pausePlayback();
       } else {
-        startPlayback();
+        startPlayback(false);
       }
     });
 
     document.getElementById("reconnectBtn").addEventListener("click", () => {
       statusMsg.textContent = "Refrescant connexió...";
-      startPlayback();
+      resetPlayback();
+      startPlayback(true);
     });
 
     document.querySelectorAll(".station-btn").forEach((btn) => {
@@ -928,24 +1027,31 @@
         currentStation = btn.dataset.id;
         updateBaseUI();
         fetchLiveProgramMetadata();
-        startPlayback();
+        resetPlayback();
+        startPlayback(true);
       });
     });
 
     territorialSelect.addEventListener("change", () => {
       updateBaseUI();
       fetchLiveProgramMetadata();
-      if (isPlaying) startPlayback();
+      if (isPlaying || activeStreamUrl) {
+        const wasPlaying = isPlaying;
+        resetPlayback();
+        if (wasPlaying) startPlayback(true);
+      }
     });
 
     if ("mediaSession" in navigator) {
-      navigator.mediaSession.setActionHandler("play", startPlayback);
-      navigator.mediaSession.setActionHandler("pause", stopPlayback);
+      navigator.mediaSession.setActionHandler("play", () => startPlayback(false));
+      navigator.mediaSession.setActionHandler("pause", pausePlayback);
       navigator.mediaSession.setActionHandler("seekbackward", () => {
+        if (!isTimeshiftSupported()) return;
         const range = getSeekableRange();
         if (range) audio.currentTime = Math.max(range.start, audio.currentTime - 10);
       });
       navigator.mediaSession.setActionHandler("seekforward", () => {
+        if (!isTimeshiftSupported()) return;
         const range = getSeekableRange();
         if (range) audio.currentTime = Math.min(range.end, audio.currentTime + 10);
       });
