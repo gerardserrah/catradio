@@ -187,10 +187,16 @@
       background: #C4162A;
       border-color: #C4162A;
     }
+    .station-btn[data-id="icat"].active img {
+      filter: none;
+    }
 
     .station-btn[data-id="catmusica"].active {
       background: #429B2B;
       border-color: #429B2B;
+    }
+    .station-btn[data-id="catmusica"].active img {
+      filter: brightness(0) invert(1);
     }
 
     /* Connexió territorial */
@@ -473,19 +479,19 @@
       <!-- Selector dels 5 canals oficials -->
       <div class="stations-grid" id="stationsGrid">
         <button class="station-btn active" data-id="catradio" aria-label="Catalunya Ràdio">
-          <img src="https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg" alt="Catràdio" />
+          <img src="/logos/catradio.svg" onerror="this.src='https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg'" alt="Catràdio" />
         </button>
         <button class="station-btn" data-id="digital" aria-label="Exclusiu Digital">
-          <img src="https://statics.3cat.cat/recursos/3cat/logos/web/ocr1.svg" onerror="this.src='https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg'" alt="Exclusiu Digital" />
+          <img src="/logos/exclusiudigital.svg" alt="Exclusiu Digital" />
         </button>
         <button class="station-btn" data-id="catinfo" aria-label="3CatInfo">
-          <img src="https://statics.3cat.cat/recursos/3cat/logos/web/ci.svg" onerror="this.src='https://statics.3cat.cat/recursos/3cat/logos/web/3catinfo.svg'" alt="3cat info" />
+          <img src="/logos/info.svg" alt="3cat info" />
         </button>
         <button class="station-btn" data-id="icat" aria-label="iCat">
-          <img src="https://statics.3cat.cat/recursos/3cat/logos/web/ic.svg?v=3.2611.1" alt="iCat" />
+          <img src="/logos/icat.svg" alt="iCat" />
         </button>
         <button class="station-btn" data-id="catmusica" aria-label="CatMúsica">
-          <img src="https://statics.3cat.cat/recursos/3cat/logos/web/cm.svg?v=3.2611.3" alt="CatMúsica" />
+          <img src="/logos/catmus.svg" alt="CatMúsica" />
         </button>
       </div>
 
@@ -570,7 +576,7 @@
       catradio: {
         name: "Catalunya Ràdio",
         pvideoId: "cr",
-        logo: "https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg",
+        logo: "/logos/catradio.svg",
         ambient: "rgba(255, 209, 0, 0.14)",
         urls: {
           barcelona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-hls/master.m3u8",
@@ -583,7 +589,7 @@
       digital: {
         name: "CatRàdio Exclusiu Digital",
         pvideoId: "ocr1",
-        logo: "https://statics.3cat.cat/recursos/3cat/logos/web/ocr1.svg",
+        logo: "/logos/exclusiudigital.svg",
         ambient: "rgba(245, 168, 0, 0.14)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-digital-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyaradioHD.mp3"
@@ -591,7 +597,7 @@
       catinfo: {
         name: "3CatInfo",
         pvideoId: "ci",
-        logo: "https://statics.3cat.cat/recursos/3cat/logos/web/ci.svg",
+        logo: "/logos/info.svg",
         ambient: "rgba(242, 84, 0, 0.14)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-informacio-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyainformacioHD.mp3"
@@ -599,7 +605,7 @@
       icat: {
         name: "iCat",
         pvideoId: "ic",
-        logo: "https://statics.3cat.cat/recursos/3cat/logos/web/ic.svg?v=3.2611.1",
+        logo: "/logos/icat.svg",
         ambient: "rgba(196, 22, 42, 0.16)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/icat-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/icatHD.mp3"
@@ -607,7 +613,7 @@
       catmusica: {
         name: "Catalunya Música",
         pvideoId: "cm",
-        logo: "https://statics.3cat.cat/recursos/3cat/logos/web/cm.svg?v=3.2611.3",
+        logo: "/logos/catmus.svg",
         ambient: "rgba(66, 155, 43, 0.15)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-musica-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyamusicaHD.mp3"
