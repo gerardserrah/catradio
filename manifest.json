@@ -1,0 +1,17 @@
+{
+  "name": "CatRàdio Directe",
+  "short_name": "CatRàdio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

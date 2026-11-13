@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CatRàdio" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg" />
+  <title>CatRàdio Directe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --card-bg: #141414;
+      --border: #262626;
+      --yellow: #ffd100;
+      --text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      background-color: #000000;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .app-shell {
+      position: relative;
+      width: 100%;
+      max-width: 430px;
+      height: 100dvh;
+      max-height: 932px;
+      background-color: var(--bg);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: max(env(safe-area-inset-top), 20px) 20px max(env(safe-area-inset-bottom), 24px) 20px;
+      overflow: hidden;
+    }
+
+    /* Botons d'emissora amb estats oficials */
+    .station-btn {
+      aspect-ratio: 1 / 1;
+      background-color: #121212;
+      border: 1px solid #262626;
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 5px;
+      color: #ffffff;
+      cursor: pointer;
+      transition: transform 0.12s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+
+    .station-btn:active {
+      transform: scale(0.94);
+    }
+
+    /* Filtres CSS per tintar els SVG oficials de statics.3cat.cat a blanc o negre pur segons l'estat */
+    .official-logo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+      transition: filter 0.18s ease, opacity 0.18s ease;
+    }
+
+    /* Colors actius específics de cada canal (segons captures oficials) */
+    .station-btn[data-id="catradio"].active {
+      background-color: #FFD100;
+      border-color: #FFD100;
+      color: #000000;
+    }
+    .station-btn[data-id="catradio"].active .official-logo {
+      filter: brightness(0);
+    }
+
+    .station-btn[data-id="digital"].active {
+      background-color: #F5A800;
+      border-color: #F5A800;
+      color: #000000;
+    }
+    .station-btn[data-id="digital"].active .official-logo {
+      filter: brightness(0);
+    }
+
+    .station-btn[data-id="catinfo"].active {
+      background-color: #F25400;
+      border-color: #F25400;
+      color: #FFFFFF;
+    }
+
+    .station-btn[data-id="icat"].active {
+      background-color: #C4162A;
+      border-color: #C4162A;
+      color: #FFFFFF;
+    }
+
+    .station-btn[data-id="catmusica"].active {
+      background-color: #429B2B;
+      border-color: #429B2B;
+      color: #FFFFFF;
+    }
+
+    /* Spinner de càrrega */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loader-ring {
+      width: 38px;
+      height: 38px;
+      border: 3px solid rgba(255, 255, 255, 0.18);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    /* Estil personalitzat per al desplegable territorial */
+    select.territorial-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+      padding-right: 4px;
+    }
+    select.territorial-select option {
+      background-color: #141414;
+      color: #ffffff;
+    }
+
+    /* Resplendor ambiental càlid inspirat en el reproductor web de 3Cat */
+    .ambient-glow {
+      position: absolute;
+      top: 24%;
+      left: 50%;
+      transform: translate(-50%, -15%);
+      width: 340px;
+      height: 340px;
+      background: radial-gradient(circle, rgba(136, 48, 42, 0.34) 0%, rgba(45, 22, 20, 0.14) 50%, rgba(10, 10, 10, 0) 75%);
+      filter: blur(36px);
+      pointer-events: none;
+      z-index: 0;
+      transition: background 0.6s ease;
+    }
+
+    /* Barra de Timeshift (DVR) personalitzada */
+    input[type="range"].dvr-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"].dvr-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.65);
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"].dvr-slider:active::-webkit-slider-thumb {
+      transform: scale(1.25);
+    }
+
+    input[type="range"].dvr-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border: none;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.65);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="app-shell">
+    <!-- Fons ambiental subtil darrere de la caràtula -->
+    <div id="ambientGlow" class="ambient-glow"></div>
+
+    <!-- Bloc Superior: Capçalera, Graella d'emissores i Connexió Territorial -->
+    <div class="relative z-10">
+      <!-- Capçalera EN DIRECTE -->
+      <header class="flex items-center justify-between pt-1 pb-4">
+        <div class="flex items-center gap-3">
+          <button id="minimizeBtn" aria-label="Minimitza" class="text-white/90 hover:text-white p-1 -ml-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="flex items-center gap-2 text-[12.5px] font-bold tracking-[0.06em] uppercase text-white">
+            <span class="relative flex h-2.5 w-2.5 items-center justify-center">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-50"></span>
+              <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+            </span>
+            <span>EN DIRECTE</span>
+          </div>
+        </div>
+        <span id="streamQualityBadge" class="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded bg-white/5 text-neutral-400 border border-white/10">
+          3CAT HLS
+        </span>
+      </header>
+
+      <!-- Graella de 5 Emissores amb els SVG oficials de statics.3cat.cat -->
+      <div class="grid grid-cols-5 gap-2" id="stationsGrid">
+        <!-- 1. Catràdio -->
+        <button class="station-btn active" data-id="catradio" aria-label="Catalunya Ràdio">
+          <img
+            src="https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg"
+            alt="Catràdio"
+            class="official-logo p-1"
+          />
+        </button>
+
+        <!-- 2. Exclusiu Digital -->
+        <button class="station-btn" data-id="digital" aria-label="Exclusiu Digital">
+          <img
+            src="https://statics.3cat.cat/recursos/3cat/logos/web/ocr1.svg"
+            alt="Exclusiu Digital"
+            class="official-logo p-1"
+            onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'flex flex-col items-center justify-center w-full h-full\'><img src=\'https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg\' class=\'official-logo h-6 w-auto mb-0.5\' alt=\'\'/><span class=\'text-[7.5px] font-extrabold leading-[1.05] tracking-tight uppercase\'>EXCLUSIU<br>DIGITAL</span></div>';"
+          />
+        </button>
+
+        <!-- 3. 3cat info -->
+        <button class="station-btn" data-id="catinfo" aria-label="3cat info">
+          <img
+            src="https://statics.3cat.cat/recursos/3cat/logos/web/ci.svg"
+            alt="3cat info"
+            class="official-logo p-1"
+            onerror="this.onerror=null; this.src='https://statics.3cat.cat/recursos/3cat/logos/web/3catinfo.svg';"
+          />
+        </button>
+
+        <!-- 4. iCat -->
+        <button class="station-btn" data-id="icat" aria-label="iCat">
+          <img
+            src="https://statics.3cat.cat/recursos/3cat/logos/web/ic.svg?v=3.2611.1"
+            alt="iCat"
+            class="official-logo p-1.5"
+          />
+        </button>
+
+        <!-- 5. CatMúsica -->
+        <button class="station-btn" data-id="catmusica" aria-label="CatMúsica">
+          <img
+            src="https://statics.3cat.cat/recursos/3cat/logos/web/cm.svg?v=3.2611.3"
+            alt="CatMúsica"
+            class="official-logo p-1"
+          />
+        </button>
+      </div>
+
+      <!-- Fila de Connexió Territorial -->
+      <div class="flex items-center gap-2 mt-4 text-[13px] text-neutral-200 transition-opacity duration-200" id="territorialRow">
+        <span class="text-neutral-300">Connexió territorial:</span>
+        <div class="relative inline-flex items-center">
+          <select id="territorialSelect" class="territorial-select text-[13px]" aria-label="Selecciona connexió territorial">
+            <option value="girona" selected>Girona</option>
+            <option value="barcelona">Barcelona</option>
+            <option value="lleida">Lleida</option>
+            <option value="tarragona">Tarragona</option>
+          </select>
+        </div>
+        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full border border-neutral-500 text-neutral-300 text-[11px] pointer-events-none">
+          ›
+        </span>
+      </div>
+    </div>
+
+    <!-- Bloc Central: Portada, Títol, Subtítol i A continuació -->
+    <div class="relative z-10 flex flex-col items-center text-center my-auto px-2">
+      <div class="relative mb-5">
+        <img
+          id="artwork"
+          src="https://img.3cat.cat/multimedia/jpg/5/1/1788863567815.jpg"
+          alt="Imatge del programa"
+          class="w-[215px] h-[215px] sm:w-[235px] sm:h-[235px] rounded-xl object-cover bg-[#141414] shadow-[0_20px_50px_rgba(0,0,0,0.85)] border border-white/10"
+        />
+      </div>
+
+      <h1 id="programTitle" class="text-[20px] sm:text-[22px] font-bold tracking-tight text-white leading-snug mb-1">
+        El matí de Catalunya Ràdio
+      </h1>
+
+      <p id="programHost" class="text-[14px] text-neutral-300 font-normal mb-1">
+        amb Ricard Ustrell
+      </p>
+
+      <p id="regionSubtitle" class="text-[12px] text-neutral-400 font-medium mb-2.5">
+        Connexió Girona
+      </p>
+
+      <!-- Píndola "A continuació" inspirada en la web oficial de 3Cat -->
+      <div id="nextProgramWrap" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.06] border border-white/[0.08] text-[11.5px] text-neutral-300 max-w-full">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-neutral-400 shrink-0">
+          <polygon points="5 4 15 12 5 20 5 4"></polygon>
+          <line x1="19" y1="5" x2="19" y2="19"></line>
+        </svg>
+        <span id="nextProgramText" class="truncate">A continuació: 12:00 La Renaixença</span>
+      </div>
+    </div>
+
+    <!-- Bloc Inferior: Barra Timeshift, Botó Play/Pausa/Spinner i Barra d'eines -->
+    <div class="relative z-10">
+      <!-- Barra de temps DVR amb rellotge real d'emissió -->
+      <div class="mb-3 px-1">
+        <div class="flex items-center justify-between text-[11.5px] font-medium tabular-nums mb-1.5">
+          <div class="flex items-center gap-1.5">
+            <span id="broadcastClock" class="text-white font-semibold tracking-tight">--:--:--</span>
+            <span id="timeshiftOffsetBadge" class="hidden text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#ffd100]/15 text-[#ffd100]">
+              -00:00
+            </span>
+          </div>
+          <span id="liveEdgeClock" class="text-neutral-400">Directe · --:--</span>
+        </div>
+
+        <input
+          type="range"
+          id="dvrSlider"
+          class="dvr-slider"
+          min="0"
+          max="100"
+          step="1"
+          value="100"
+          aria-label="Línia de temps de l'emissió en directe"
+        />
+      </div>
+
+      <!-- Controls Centrals (-10s, Play/Pausa, +10s, Tornar al directe) -->
+      <div class="flex flex-col items-center justify-center mb-2">
+        <div class="flex items-center justify-center gap-5 h-[72px]">
+          <!-- Retrocedir 10 segons -->
+          <button
+            id="rewind10Btn"
+            aria-label="Retrocedeix 10 segons"
+            class="w-11 h-11 rounded-full flex items-center justify-center text-neutral-200 hover:text-white hover:bg-white/10 active:scale-90 transition cursor-pointer"
+            title="Enrere 10 segons"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+              <text x="12" y="15.5" text-anchor="middle" fill="currentColor" stroke="none" font-size="7.5" font-weight="700" font-family="-apple-system, sans-serif">10</text>
+            </svg>
+          </button>
+
+          <!-- Botó Circular Blanc Play / Pausa o Spinner -->
+          <div class="w-[66px] h-[66px] flex items-center justify-center">
+            <div id="spinner" class="loader-ring hidden" role="status" aria-label="Carregant àudio"></div>
+
+            <button
+              id="playBtn"
+              aria-label="Reproduir o pausar"
+              class="w-[66px] h-[66px] rounded-full bg-white text-black flex items-center justify-center shadow-[0_6px_24px_rgba(255,255,255,0.18)] active:scale-95 transition-transform cursor-pointer"
+            >
+              <svg id="playIcon" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" class="ml-1">
+                <polygon points="6 4 20 12 6 20 6 4"></polygon>
+              </svg>
+              <svg id="pauseIcon" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+                <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Avançar 10 segons -->
+          <button
+            id="forward10Btn"
+            aria-label="Avança 10 segons"
+            class="w-11 h-11 rounded-full flex items-center justify-center text-neutral-200 hover:text-white hover:bg-white/10 active:scale-90 transition cursor-pointer"
+            title="Endavant 10 segons"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+              <path d="M21 3v5h-5"></path>
+              <text x="12" y="15.5" text-anchor="middle" fill="currentColor" stroke="none" font-size="7.5" font-weight="700" font-family="-apple-system, sans-serif">10</text>
+            </svg>
+          </button>
+
+          <!-- Botó tornar al directe (només actiu quan estem enrere) -->
+          <button
+            id="goLiveBtn"
+            aria-label="Torna al directe"
+            class="hidden px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold tracking-tight flex items-center gap-1 active:scale-95 transition cursor-pointer"
+            title="Torna al punt en directe"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-[#ef4444]"></span>
+            <span>directe</span>
+          </button>
+        </div>
+
+        <!-- Missatge d'estat / Watchdog -->
+        <div id="statusMsg" class="text-[11.5px] font-medium text-[#ffd100] mt-1.5 h-4 text-center"></div>
+      </div>
+
+      <!-- Barra Inferior: Temporitzador (zZz) i Reconnexió Forçada -->
+      <footer class="flex items-center justify-between px-2 pt-1">
+        <!-- Temporitzador d'apagat -->
+        <button id="sleepBtn" class="flex items-center gap-2 p-2.5 -ml-2.5 text-neutral-200 hover:text-white active:scale-95 transition cursor-pointer" title="Temporitzador d'apagat">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="13" r="7.5"></circle>
+            <polyline points="11 9.5 11 13 13.5 14.5"></polyline>
+            <path d="M17.5 3h3l-3 3h3"></path>
+            <path d="M20.5 7.5h2l-2 2h2"></path>
+          </svg>
+          <span id="sleepLabel" class="text-[12px] font-semibold text-[#ffd100]"></span>
+        </button>
+
+        <!-- Reconnexió forçada (reset buffer) -->
+        <button id="reconnectBtn" class="flex items-center gap-1.5 p-2.5 -mr-2.5 text-neutral-200 hover:text-white active:scale-95 transition cursor-pointer" title="Forçar reconnexió del directe">
+          <svg id="reconnectIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+            <path d="M16 21h5v-5"></path>
+          </svg>
+        </button>
+      </footer>
+    </div>
+
+    <!-- Reproductor HTML5 natiu ocult -->
+    <audio id="audioPlayer" preload="none" playsinline></audio>
+  </main>
+
+  <script>
+    // Genera caràtules vectorials oficials d'alta resolució per a cada emissora quan no hi ha foto específica de programa
+    function makeStationCoverSVG(stationId) {
+      if (stationId === "catinfo") {
+        // Marca d'aigua fosca oficial de 3cat info (exactament com a la captura 2)
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+          <rect width="512" height="512" fill="#0d0d0d"/>
+          <g fill="#2e2e2e">
+            <text x="226" y="275" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Inter, sans-serif" font-weight="800" font-size="68" letter-spacing="-3">3cat</text>
+            <path d="M308 232L322 242L308 252V232ZM326 226L345 242L326 258V248L334 242L326 236V226ZM347 220L371 242L347 264V253L359 242L347 231V220Z"/>
+            <text x="415" y="275" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Inter, sans-serif" font-weight="700" font-size="68" letter-spacing="-2">info</text>
+          </g>
+        </svg>`;
+        return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+      }
+
+      const configs = {
+        catradio: { bg: "#121212", accent: "#FFD100", top: "Catràdio", sub: "EN DIRECTE · 3CAT" },
+        digital: { bg: "#121212", accent: "#F5A800", top: "EXCLUSIU", sub: "DIGITAL · CATRÀDIO" },
+        icat: { bg: "#160c10", accent: "#C4162A", top: "iCat", sub: "MÚSICA I CULTURA" },
+        catmusica: { bg: "#0f170d", accent: "#429B2B", top: "CatMúsica", sub: "CLÀSSICA EN DIRECTE" }
+      };
+      const cfg = configs[stationId] || configs.catradio;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+        <defs>
+          <radialGradient id="g" cx="30%" cy="25%" r="80%">
+            <stop offset="0%" stop-color="${cfg.accent}" stop-opacity="0.30"/>
+            <stop offset="100%" stop-color="${cfg.bg}" stop-opacity="1"/>
+          </radialGradient>
+        </defs>
+        <rect width="512" height="512" fill="${cfg.bg}"/>
+        <rect width="512" height="512" fill="url(#g)"/>
+        <rect x="24" y="24" width="464" height="464" rx="28" fill="none" stroke="${cfg.accent}" stroke-opacity="0.22" stroke-width="2"/>
+        <text x="256" y="250" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, Inter, sans-serif" font-weight="800" font-size="54" letter-spacing="-1">${cfg.top}</text>
+        <text x="256" y="305" text-anchor="middle" fill="${cfg.accent}" font-family="-apple-system, BlinkMacSystemFont, Inter, sans-serif" font-weight="700" font-size="22" letter-spacing="3">${cfg.sub}</text>
+      </svg>`;
+      return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+    }
+
+    // Configuració dels canals de 3Cat amb codis pvideo oficials, fluxos HLS i fallback MP3 directe
+    const STREAMS = {
+      catradio: {
+        apiCode: "catradio",
+        pvideoId: "cr",
+        webSlug: "catalunya-radio",
+        matchKeys: ["catalunya-radio", "catalunya ràdio", "catradio", "\"cr\""],
+        title: "Catalunya Ràdio",
+        host: "Emissió en directe",
+        defaultCover: makeStationCoverSVG("catradio"),
+        glow: "radial-gradient(circle, rgba(255, 209, 0, 0.22) 0%, rgba(70, 52, 10, 0.12) 50%, rgba(10, 10, 10, 0) 75%)",
+        urls: {
+          girona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-girona-hls/master.m3u8",
+          barcelona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-hls/master.m3u8",
+          lleida: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-lleida-hls/master.m3u8",
+          tarragona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-tarragona-hls/master.m3u8"
+        },
+        fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyaradioHD.mp3"
+      },
+      digital: {
+        apiCode: "catradio-digital",
+        pvideoId: "ocr1",
+        webSlug: "catalunya-radio-exclusiu-digital",
+        matchKeys: ["exclusiu digital", "catradio-digital", "ocr1"],
+        title: "CatRàdio Exclusiu Digital",
+        host: "Emissió en directe 3Cat",
+        defaultCover: makeStationCoverSVG("digital"),
+        glow: "radial-gradient(circle, rgba(245, 168, 0, 0.24) 0%, rgba(65, 44, 8, 0.12) 50%, rgba(10, 10, 10, 0) 75%)",
+        url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-digital-hls/master.m3u8",
+        fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyaradioHD.mp3"
+      },
+      catinfo: {
+        apiCode: "catinfo",
+        pvideoId: "ci",
+        webSlug: "3catinfo-radio",
+        matchKeys: ["3catinfo", "catalunya informació", "catinfo", "\"ci\""],
+        title: "3CatInfo Ràdio",
+        host: "Catalunya Informació",
+        defaultCover: makeStationCoverSVG("catinfo"),
+        glow: "radial-gradient(circle, rgba(242, 84, 0, 0.24) 0%, rgba(65, 24, 6, 0.12) 50%, rgba(10, 10, 10, 0) 75%)",
+        url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-informacio-hls/master.m3u8",
+        fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyainformacioHD.mp3"
+      },
+      icat: {
+        apiCode: "icat",
+        pvideoId: "ic",
+        webSlug: "icat",
+        matchKeys: ["icat", "\"ic\""],
+        title: "iCat",
+        host: "Emissió en directe 3Cat",
+        defaultCover: makeStationCoverSVG("icat"),
+        glow: "radial-gradient(circle, rgba(196, 22, 42, 0.28) 0%, rgba(60, 10, 18, 0.14) 50%, rgba(10, 10, 10, 0) 75%)",
+        url: "https://directes-radio-int.3catdirectes.cat/live-content/icat-hls/master.m3u8",
+        fallbackMp3: "https://shoutcast.ccma.cat/ccma/icatHD.mp3"
+      },
+      catmusica: {
+        apiCode: "catmusica",
+        pvideoId: "cm",
+        webSlug: "catalunya-musica",
+        matchKeys: ["catalunya música", "catalunya musica", "catmusica", "\"cm\""],
+        title: "Catalunya Música",
+        host: "Emissió en directe 3Cat",
+        defaultCover: makeStationCoverSVG("catmusica"),
+        glow: "radial-gradient(circle, rgba(66, 155, 43, 0.26) 0%, rgba(20, 52, 14, 0.14) 50%, rgba(10, 10, 10, 0) 75%)",
+        url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-musica-hls/master.m3u8",
+        fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyamusicaHD.mp3"
+      }
+    };
+
+    const audio = document.getElementById("audioPlayer");
+    const playBtn = document.getElementById("playBtn");
+    const playIcon = document.getElementById("playIcon");
+    const pauseIcon = document.getElementById("pauseIcon");
+    const spinner = document.getElementById("spinner");
+    const statusMsg = document.getElementById("statusMsg");
+    const streamQualityBadge = document.getElementById("streamQualityBadge");
+    const programTitle = document.getElementById("programTitle");
+    const programHost = document.getElementById("programHost");
+    const regionSubtitle = document.getElementById("regionSubtitle");
+    const nextProgramWrap = document.getElementById("nextProgramWrap");
+    const nextProgramText = document.getElementById("nextProgramText");
+    const artwork = document.getElementById("artwork");
+    const ambientGlow = document.getElementById("ambientGlow");
+    const territorialRow = document.getElementById("territorialRow");
+    const territorialSelect = document.getElementById("territorialSelect");
+
+    // Controls de Timeshift / DVR
+    const dvrSlider = document.getElementById("dvrSlider");
+    const broadcastClock = document.getElementById("broadcastClock");
+    const liveEdgeClock = document.getElementById("liveEdgeClock");
+    const timeshiftOffsetBadge = document.getElementById("timeshiftOffsetBadge");
+    const rewind10Btn = document.getElementById("rewind10Btn");
+    const forward10Btn = document.getElementById("forward10Btn");
+    const goLiveBtn = document.getElementById("goLiveBtn");
+
+    // Variables d'estat global del reproductor i del Timeshift DVR
+    let currentStation = "catradio";
+    let isPlaying = false;
+    let hlsInstance = null;
+    let isScrubbing = false;
+    let manualLagSeconds = 0;
+    let watchdogTimer = null;
+    let clockTimer = null;
+    let metadataTimer = null;
+    let sleepTimeout = null;
+    let sleepMinutes = 0;
+
+    // Consulta l'API oficial pvideo de la CCMA (directe o via proxy) per obtenir el manifest DVR de 2 hores
+    async function resolvePvideoDvrStream(station) {
+      const targetUrl = `https://dinamics.ccma.cat/pvideo/media.jsp?media=radio&version=0s&idint=${encodeURIComponent(station.pvideoId)}&profile=pc`;
+      const candidates = [
+        `/api/dvr?id=${encodeURIComponent(station.pvideoId)}`,
+        targetUrl,
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+      ];
+
+      for (const reqUrl of candidates) {
+        try {
+          const controller = new AbortController();
+          const tid = setTimeout(() => controller.abort(), 3500);
+          const res = await fetch(reqUrl, { signal: controller.signal });
+          clearTimeout(tid);
+          if (!res.ok) continue;
+
+          const data = await res.json();
+          const formats = data?.media?.url || [];
+          const hlsObj = Array.isArray(formats)
+            ? formats.find((f) => String(f.file || "").includes(".m3u8"))
+            : null;
+          if (hlsObj?.file) return hlsObj.file;
+        } catch (e) {}
+      }
+      return null;
+    }
+
+    // Retorna l'URL del flux d'àudio directe oficial
+    function getStreamUrl() {
+      const station = STREAMS[currentStation];
+      if (currentStation === "catradio") {
+        const region = territorialSelect.value;
+        return station.urls[region] || station.fallbackMp3;
+      }
+      return station.url || station.fallbackMp3;
+    }
+
+    // Normalitza qualsevol ruta d'imatge de 3Cat (incloent-hi rutes relatives com /multimedia/jpg/...)
+    function normalize3CatImageUrl(rawUrl) {
+      if (!rawUrl || typeof rawUrl !== "string") return null;
+      let clean = rawUrl.trim().replace(/\\u002F/g, "/").replace(/\\\//g, "/");
+      if (clean.startsWith("//")) clean = "https:" + clean;
+      else if (clean.startsWith("/multimedia/")) clean = "https://img.3cat.cat" + clean;
+      else if (clean.startsWith("/")) clean = "https://www.3cat.cat" + clean;
+      if (!/^https?:\/\//i.test(clean)) return null;
+      if (/logo|icona|avatar|marca|sprite|\.svg/i.test(clean)) return null;
+      return clean;
+    }
+
+    // Estat base net i honest per a cada emissora (sense dades ni presentadors inventats)
+    function getCleanStationDefaults(stationId) {
+      const station = STREAMS[stationId];
+      return {
+        title: station.title,
+        host: station.host,
+        artwork: station.defaultCover,
+        next: ""
+      };
+    }
+
+    // Selecciona la millor imatge del programa dins de l'objecte retornat per 3Cat
+    function pickBestProgramArtwork(obj, fallbackUrl) {
+      if (!obj || typeof obj !== "object") return fallbackUrl;
+
+      // 1. Comprovar camps d'imatge explícits de l'API de 3Cat
+      const explicitCandidates = [
+        obj.imatge_quadrada,
+        obj.imatgeQuadrada,
+        obj.imatge_programa,
+        obj.imatgePrograma,
+        obj.imatge_1x1,
+        obj.imatge,
+        obj.image,
+        obj.img,
+        obj.foto,
+        obj.caratula,
+        obj.imatges?.quadrada,
+        obj.imatges?.["1x1"],
+        obj.imatges?.principal,
+        obj.imatges?.gran,
+        obj.imatges?.url
+      ];
+
+      for (const cand of explicitCandidates) {
+        if (typeof cand === "string") {
+          const norm = normalize3CatImageUrl(cand);
+          if (norm) return norm;
+        } else if (cand && typeof cand === "object") {
+          const nested = normalize3CatImageUrl(cand.url || cand.src || cand.href || cand.text);
+          if (nested) return nested;
+        }
+      }
+
+      // 2. Cerca profunda dins tot el JSON del node (tant URLs completes com rutes relatives /multimedia/...)
+      const jsonStr = JSON.stringify(obj);
+      const matches = jsonStr.match(/(?:https:\/\/img\.3cat\.cat)?\/multimedia\/[^"'\s\\]+?\.(?:jpg|jpeg|png|webp)/gi);
+      if (!matches || matches.length === 0) return fallbackUrl;
+
+      const normalizedList = matches
+        .map((m) => normalize3CatImageUrl(m))
+        .filter(Boolean);
+
+      if (normalizedList.length === 0) return fallbackUrl;
+      const squareMatch = normalizedList.find((u) => /1x1|quadrat|cover|512|600|800/i.test(u));
+      return squareMatch || normalizedList[0] || fallbackUrl;
+    }
+
+    // Si falla qualsevol URL remota de 3Cat, mostrem la caràtula oficial de l'emissora activa (mai un cartell genèric)
+    artwork.addEventListener("error", () => {
+      const fallbackSvg = STREAMS[currentStation]?.defaultCover;
+      if (fallbackSvg && artwork.src !== fallbackSvg) {
+        artwork.src = fallbackSvg;
+      }
+    });
+
+    let cached3CatDirectes = null;
+    let cached3CatTimestamp = 0;
+    let inFlight3CatPromise = null;
+
+    // Fetch amb suport de timeout i peticions en paral·lel per saltar CORS sense esperar timeouts llargs
+    async function fetchTextWithCorsFallback(targetUrl, timeoutMs = 4500) {
+      const candidates = [
+        targetUrl,
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+      ];
+
+      const attempts = candidates.map(async (reqUrl) => {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(reqUrl, { signal: controller.signal });
+          clearTimeout(tid);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const text = await res.text();
+          if (!text || text.length < 50) throw new Error("Empty");
+          return text;
+        } catch (e) {
+          clearTimeout(tid);
+          throw e;
+        }
+      });
+
+      try {
+        return await Promise.any(attempts);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Recorre recursivament el JSON __NEXT_DATA__ o l'API de 3Cat per trobar el bloc del canal amb la seva imatge real
+    function findChannelNodeInJson(node, matchKeys) {
+      if (!node || typeof node !== "object") return null;
+
+      if (Array.isArray(node)) {
+        for (const item of node) {
+          const found = findChannelNodeInJson(item, matchKeys);
+          if (found) return found;
+        }
+        return null;
+      }
+
+      const headerFingerprint = JSON.stringify({
+        id: node.id,
+        canal: node.canal,
+        emissora: node.emissora,
+        slug: node.slug,
+        codi: node.codi,
+        codi_canal: node.codi_canal,
+        nom: node.nom,
+        titol_canal: node.titol_canal
+      }).toLowerCase();
+
+      const hasChannelMatch = matchKeys.some((k) => headerFingerprint.includes(k.toLowerCase()));
+      const nodeStr = JSON.stringify(node);
+      const hasMediaOrProgram = /\/multimedia\//i.test(nodeStr) && (node.titol || node.programa || node.ara || node.directe);
+
+      if (hasChannelMatch && hasMediaOrProgram) {
+        return node;
+      }
+
+      for (const key of Object.keys(node)) {
+        const found = findChannelNodeInJson(node[key], matchKeys);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    // Llegeix en temps real la font original (via /api/graella a Vercel o directament de 3Cat)
+    async function fetchAll3CatDirectesFromWeb() {
+      const now = Date.now();
+      if (cached3CatDirectes && now - cached3CatTimestamp < 45000) {
+        return cached3CatDirectes;
+      }
+      if (inFlight3CatPromise) return inFlight3CatPromise;
+
+      inFlight3CatPromise = (async () => {
+        // 1. Si estem desplegats a Vercel amb l'endpoint /api/graella, llegim la resposta directe sense CORS
+        try {
+          const localRes = await fetch("/api/graella");
+          if (localRes.ok) {
+            const localJson = await localRes.json();
+            if (localJson && typeof localJson === "object") {
+              cached3CatDirectes = { nextData: localJson, rawHtml: "" };
+              cached3CatTimestamp = Date.now();
+              return cached3CatDirectes;
+            }
+          }
+        } catch (e) {}
+
+        // 2. Consulta als endpoints lleugers oficials de 3Cat / CCMA via proxy JSON (allorigins /get)
+        const lightEndpoints = [
+          "https://api.3cat.cat/graella/directes",
+          "https://dinamics.ccma.cat/wsaradespres/aradespres.json",
+          "https://www.3cat.cat/3cat/directes/catalunya-radio/"
+        ];
+
+        for (const ep of lightEndpoints) {
+          try {
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(ep)}`;
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(proxyUrl, { signal: controller.signal });
+            clearTimeout(tid);
+            if (!res.ok) continue;
+
+            const wrapper = await res.json();
+            const contents = wrapper?.contents;
+            if (!contents) continue;
+
+            // Si l'endpoint ja és JSON directe (api.3cat.cat o aradespres.json)
+            if (contents.trim().startsWith("{") || contents.trim().startsWith("[")) {
+              const parsedJson = JSON.parse(contents);
+              cached3CatDirectes = { nextData: parsedJson, rawHtml: "" };
+              cached3CatTimestamp = Date.now();
+              return cached3CatDirectes;
+            }
+
+            // Si és l'HTML de 3Cat, extreiem el bloc __NEXT_DATA__
+            const nextMatch = contents.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+            if (nextMatch && nextMatch[1]) {
+              const parsedNext = JSON.parse(nextMatch[1]);
+              cached3CatDirectes = { nextData: parsedNext, rawHtml: contents };
+              cached3CatTimestamp = Date.now();
+              return cached3CatDirectes;
+            }
+          } catch (e) {}
+        }
+
+        return null;
+      })();
+
+      const result = await inFlight3CatPromise;
+      inFlight3CatPromise = null;
+      return result;
+    }
+
+    // Obté la programació i caràtula 100% reals en directe des de la font original de 3Cat (sense inventar res)
+    async function fetchLiveProgramMetadata(stationId) {
+      const station = STREAMS[stationId];
+
+      try {
+        const bundle = await fetchAll3CatDirectesFromWeb();
+        if (bundle?.nextData) {
+          const node = findChannelNodeInJson(bundle.nextData, station.matchKeys);
+          if (node) {
+            const currentObj = node.ara || node.directe || node;
+            const liveTitle = currentObj.titol || currentObj.programa || station.title;
+            const liveHost = currentObj.subtitol || currentObj.presentador || currentObj.descripcio || "";
+            const liveImg = pickBestProgramArtwork(currentObj, pickBestProgramArtwork(node, station.defaultCover));
+            const nextObj = node.seguent || currentObj.seguent || node.despres;
+            const nextTitle = nextObj?.titol
+              ? `A continuació: ${nextObj.hora || nextObj.hora_inici || ""} ${nextObj.titol}`.trim()
+              : "";
+
+            if (currentStation === stationId) {
+              applyMetadataToUI({
+                title: liveTitle,
+                host: liveHost,
+                artwork: liveImg,
+                next: nextTitle
+              });
+            }
+            return;
+          }
+        }
+
+        // Si el canal concret no venia al bloc general, consultem la seva URL específica de 3Cat
+        const channelHtml = await fetchTextWithCorsFallback(`https://www.3cat.cat/3cat/directes/${station.webSlug}/`, 4500);
+        if (channelHtml) {
+          const nextMatch = channelHtml.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+          if (nextMatch && nextMatch[1]) {
+            const parsedChannel = JSON.parse(nextMatch[1]);
+            const node = findChannelNodeInJson(parsedChannel, station.matchKeys) || parsedChannel?.props?.pageProps;
+            const currentObj = node?.ara || node?.directe || node?.programa || node;
+            const liveTitle = currentObj?.titol || station.title;
+            const liveHost = currentObj?.subtitol || currentObj?.presentador || "";
+            const liveImg = pickBestProgramArtwork(currentObj, station.defaultCover);
+            const nextObj = currentObj?.seguent || node?.seguent;
+            const nextTitle = nextObj?.titol
+              ? `A continuació: ${nextObj.hora || ""} ${nextObj.titol}`.trim()
+              : "";
+
+            if (currentStation === stationId) {
+              applyMetadataToUI({
+                title: liveTitle,
+                host: liveHost,
+                artwork: liveImg,
+                next: nextTitle
+              });
+            }
+            return;
+          }
+        }
+      } catch (e) {}
+
+      // Si no es pot llegir 3Cat des d'aquest navegador, deixem el nom oficial de l'emissora sense inventar res
+      if (currentStation === stationId) {
+        applyMetadataToUI(getCleanStationDefaults(stationId));
+      }
+    }
+
+    function applyMetadataToUI(meta) {
+      programTitle.textContent = meta.title;
+      programHost.textContent = meta.host;
+      programHost.style.display = meta.host ? "block" : "none";
+      artwork.src = meta.artwork;
+
+      if (meta.next) {
+        nextProgramText.textContent = meta.next;
+        nextProgramWrap.style.display = "inline-flex";
+      } else {
+        nextProgramWrap.style.display = "none";
+      }
+
+      if ("mediaSession" in navigator) {
+        try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: meta.title,
+            artist: meta.host || "3Cat Directe",
+            album: "3Cat Directe",
+            artwork: [
+              { src: meta.artwork, sizes: "512x512", type: "image/jpeg" }
+            ]
+          });
+        } catch (e) {}
+      }
+    }
+
+    function updateUI() {
+      const station = STREAMS[currentStation];
+      ambientGlow.style.background = station.glow;
+
+      if (currentStation === "catradio" || currentStation === "catinfo") {
+        territorialRow.style.opacity = "1";
+        territorialRow.style.pointerEvents = "auto";
+        const regionName = territorialSelect.options[territorialSelect.selectedIndex].text;
+        regionSubtitle.textContent = `Connexió ${regionName}`;
+        regionSubtitle.style.display = currentStation === "catradio" ? "block" : "none";
+      } else {
+        territorialRow.style.opacity = "0";
+        territorialRow.style.pointerEvents = "none";
+        regionSubtitle.style.display = "none";
+      }
+
+      // Estat net inicial sense dades inventades mentre consulta la font original de 3Cat
+      applyMetadataToUI(getCleanStationDefaults(currentStation));
+      fetchLiveProgramMetadata(currentStation);
+    }
+
+    function setLoading(loading) {
+      spinner.classList.toggle("hidden", !loading);
+      playBtn.classList.toggle("hidden", loading);
+    }
+
+    function setPlayingState(playing) {
+      isPlaying = playing;
+      setLoading(false);
+      playIcon.classList.toggle("hidden", playing);
+      pauseIcon.classList.toggle("hidden", !playing);
+    }
+
+    function destroyHls() {
+      if (hlsInstance) {
+        try {
+          hlsInstance.destroy();
+        } catch (e) {}
+        hlsInstance = null;
+      }
+    }
+
+    // Format d'hora oficial de Catalunya (Europe/Madrid)
+    function formatCatClock(dateObj, includeSeconds = true) {
+      return dateObj.toLocaleTimeString("ca-ES", {
+        timeZone: "Europe/Madrid",
+        hour: "2-digit",
+        minute: "2-digit",
+        ...(includeSeconds ? { second: "2-digit" } : {})
+      });
+    }
+
+    function formatLagBadge(lagSec) {
+      const total = Math.max(0, Math.round(lagSec));
+      const mins = Math.floor(total / 60);
+      const secs = total % 60;
+      if (mins === 0) return `-${secs}s`;
+      return `-${mins}m ${String(secs).padStart(2, "0")}s`;
+    }
+
+    // Calcula el rang navegable (DVR) del flux HLS
+    function getSeekableRange() {
+      if (audio.seekable && audio.seekable.length > 0) {
+        const start = audio.seekable.start(0);
+        const end = audio.seekable.end(audio.seekable.length - 1);
+        if (isFinite(start) && isFinite(end) && end - start > 1) {
+          return { start, end, hasDvr: true };
+        }
+      }
+      if (audio.buffered && audio.buffered.length > 0) {
+        const start = audio.buffered.start(0);
+        const end = audio.buffered.end(audio.buffered.length - 1);
+        if (isFinite(start) && isFinite(end) && end - start > 1) {
+          return { start, end, hasDvr: true };
+        }
+      }
+      return { start: 0, end: 0, hasDvr: false };
+    }
+
+    // Genera la finestra DVR de 2 hores (7200 segons) per permetre saltar enrere a l'instant com a la web de 3Cat
+    // Genera la finestra DVR real a partir del manifest HLS carregat (mai simula una finestra falsa)
+    function getVirtualDvrWindow() {
+      const range = getSeekableRange();
+      if (range.hasDvr) {
+        return {
+          mode: "native",
+          min: Math.floor(range.start),
+          max: Math.ceil(range.end),
+          current: isScrubbing ? Number(dvrSlider.value) : audio.currentTime,
+          liveEdge: range.end
+        };
+      }
+      return {
+        mode: "live-only",
+        min: 0,
+        max: 100,
+        current: 100,
+        liveEdge: 100
+      };
+    }
+
+    // Actualitza cada segon el rellotge real d'emissió i la barra DVR real
+    function updateDvrClockUI() {
+      const now = Date.now();
+      const win = getVirtualDvrWindow();
+      const lagSeconds = win.mode === "native" ? Math.max(0, win.liveEdge - win.current) : 0;
+      manualLagSeconds = lagSeconds;
+
+      if (!isScrubbing) {
+        dvrSlider.min = win.min;
+        dvrSlider.max = win.max;
+        dvrSlider.value = Math.round(win.current);
+      }
+
+      const isBehindLive = lagSeconds > 4;
+      const effectiveLag = isBehindLive ? lagSeconds : 0;
+      const listeningDate = new Date(now - effectiveLag * 1000);
+      const liveDate = new Date(now);
+
+      broadcastClock.textContent = formatCatClock(listeningDate, true);
+      const availableSpanMin = win.mode === "native" ? Math.floor((win.max - win.min) / 60) : 0;
+      liveEdgeClock.textContent = availableSpanMin >= 2
+        ? `DVR ${availableSpanMin}m · ${formatCatClock(liveDate, false)}`
+        : `Directe · ${formatCatClock(liveDate, false)}`;
+
+      if (isBehindLive) {
+        timeshiftOffsetBadge.textContent = formatLagBadge(effectiveLag);
+        timeshiftOffsetBadge.classList.remove("hidden");
+        goLiveBtn.classList.remove("hidden");
+        dvrSlider.style.background = `linear-gradient(to right, #ffd100 ${getSliderPercent()}%, rgba(255,255,255,0.18) ${getSliderPercent()}%)`;
+      } else {
+        timeshiftOffsetBadge.classList.add("hidden");
+        goLiveBtn.classList.add("hidden");
+        dvrSlider.style.background = "rgba(255, 255, 255, 0.28)";
+      }
+    }
+
+    function getSliderPercent() {
+      const min = Number(dvrSlider.min);
+      const max = Number(dvrSlider.max);
+      const val = Number(dvrSlider.value);
+      if (max <= min) return 100;
+      return Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+    }
+    // Salta a una posició concreta dins de la finestra DVR real del manifest HLS
+    function seekToLag(targetLagSeconds) {
+      const range = getSeekableRange();
+      if (!range.hasDvr) {
+        statusMsg.textContent = "Aquest canal no té arxiu DVR disponible ara mateix";
+        setTimeout(() => { if (statusMsg.textContent.includes("DVR")) statusMsg.textContent = ""; }, 2500);
+        updateDvrClockUI();
+        return;
+      }
+
+      const maxAvailableLag = Math.max(0, range.end - range.start);
+      const clampedLag = Math.min(maxAvailableLag, Math.max(0, targetLagSeconds));
+      audio.currentTime = Math.max(range.start, range.end - clampedLag);
+      manualLagSeconds = clampedLag;
+      updateDvrClockUI();
+    }
+
+    function seekByDelta(deltaSeconds) {
+      const range = getSeekableRange();
+      if (!range.hasDvr) return;
+      const targetTime = Math.min(range.end - 1, Math.max(range.start, audio.currentTime + deltaSeconds));
+      audio.currentTime = targetTime;
+      updateDvrClockUI();
+    }
+
+    function jumpToLiveEdge() {
+      manualLagSeconds = 0;
+      const range = getSeekableRange();
+      if (range.hasDvr) {
+        audio.currentTime = Math.max(range.start, range.end - 1.5);
+        updateDvrClockUI();
+      } else {
+        startPlayback(false);
+      }
+    }
+
+    async function startPlayback(keepLag = false) {
+      setLoading(true);
+      statusMsg.textContent = "";
+      if (!keepLag) {
+        manualLagSeconds = 0;
+      }
+
+      destroyHls();
+      const station = STREAMS[currentStation];
+      // Demanem sempre el manifest DVR oficial de pvideo (i per comarques usem el seu .m3u8 territorial)
+      const isRegionalCatRadio = currentStation === "catradio" && territorialSelect.value !== "barcelona";
+      const pvideoUrl = !isRegionalCatRadio ? await resolvePvideoDvrStream(station) : null;
+      const baseUrl = pvideoUrl || getStreamUrl();
+      const sep = baseUrl.includes("?") ? "&" : "?";
+      const cleanUrl = `${baseUrl}${sep}t=${Date.now()}`;
+
+      if (window.Hls && Hls.isSupported()) {
+        if (streamQualityBadge) streamQualityBadge.textContent = pvideoUrl ? "3CAT DVR" : "3CAT HLS";
+        hlsInstance = new Hls({
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 15,
+          backBufferLength: 7200,
+          maxBufferLength: 120,
+          enableWorker: true
+        });
+        hlsInstance.loadSource(cleanUrl);
+        hlsInstance.attachMedia(audio);
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          const range = getSeekableRange();
+          if (manualLagSeconds > 4 && range.hasDvr) {
+            audio.currentTime = Math.max(range.start, range.end - manualLagSeconds);
+          }
+          audio.play().then(() => {
+            setPlayingState(true);
+            startWatchdog();
+            updateDvrClockUI();
+          }).catch(() => {
+            setPlayingState(false);
+            statusMsg.textContent = "Toca Play per iniciar l'àudio";
+          });
+        });
+
+        hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            destroyHls();
+            fallbackToMp3();
+          }
+        });
+      } else {
+        if (streamQualityBadge) streamQualityBadge.textContent = "3CAT HLS";
+        audio.src = cleanUrl;
+        audio.load();
+
+        audio.play().then(() => {
+          setPlayingState(true);
+          startWatchdog();
+          updateDvrClockUI();
+        }).catch(() => {
+          fallbackToMp3();
+        });
+      }
+    }
+
+    function fallbackToMp3() {
+      if (streamQualityBadge) streamQualityBadge.textContent = "3CAT MP3";
+      audio.src = STREAMS[currentStation].fallbackMp3;
+      audio.play().then(() => {
+        setPlayingState(true);
+        startWatchdog();
+      }).catch(() => {
+        setPlayingState(false);
+        statusMsg.textContent = "Toca Play per iniciar l'àudio";
+      });
+    }
+
+    function stopPlayback() {
+      clearInterval(watchdogTimer);
+      destroyHls();
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      statusMsg.textContent = "";
+      setPlayingState(false);
+    }
+
+    // Sistema Watchdog: comprova cada 6 segons que el flux avanci; si es talla, reconnecta mantenint la posició
+    function startWatchdog() {
+      clearInterval(watchdogTimer);
+      let lastTime = audio.currentTime;
+      // Watchdog: comprova cada 6 segons que el flux avanci; si es talla, reconnecta mantenint la posició
+      watchdogTimer = setInterval(() => {
+        if (!isPlaying || isScrubbing) return;
+
+        if (audio.paused || audio.readyState < 2 || audio.currentTime === lastTime) {
+          statusMsg.textContent = "Micro-tall detectat · Reconnectant...";
+          startPlayback(manualLagSeconds > 4);
+        } else {
+          statusMsg.textContent = "";
+          lastTime = audio.currentTime;
+        }
+      }, 6000);
+    }
+
+    // Esdeveniments dels controls de Timeshift / DVR
+    dvrSlider.addEventListener("input", () => {
+      isScrubbing = true;
+      updateDvrClockUI();
+    });
+
+    dvrSlider.addEventListener("change", () => {
+      const maxVal = Number(dvrSlider.max);
+      const selectedVal = Number(dvrSlider.value);
+      const desiredLag = Math.max(0, maxVal - selectedVal);
+      isScrubbing = false;
+      seekToLag(desiredLag);
+    });
+
+    rewind10Btn.addEventListener("click", () => {
+      if (!isPlaying) {
+        startPlayback();
+        return;
+      }
+      seekByDelta(-10);
+    });
+
+    forward10Btn.addEventListener("click", () => {
+      if (!isPlaying) return;
+      seekByDelta(10);
+    });
+
+    goLiveBtn.addEventListener("click", () => {
+      jumpToLiveEdge();
+    });
+
+    // Esdeveniments dels controls principals
+    playBtn.addEventListener("click", () => {
+      if (isPlaying) {
+        stopPlayback();
+      } else {
+        startPlayback();
+      }
+    });
+
+    document.getElementById("reconnectBtn").addEventListener("click", () => {
+      const icon = document.getElementById("reconnectIcon");
+      icon.style.transition = "transform 0.5s ease";
+      icon.style.transform = "rotate(360deg)";
+      setTimeout(() => {
+        icon.style.transition = "none";
+        icon.style.transform = "rotate(0deg)";
+      }, 520);
+
+      statusMsg.textContent = "Forçant reconnexió...";
+      startPlayback();
+    });
+
+    // Canvi d'emissora a la graella
+    document.querySelectorAll(".station-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".station-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentStation = btn.dataset.id;
+        updateUI();
+        startPlayback();
+      });
+    });
+
+    // Canvi de desconnexió territorial
+    territorialSelect.addEventListener("change", () => {
+      updateUI();
+      if (isPlaying) {
+        startPlayback();
+      }
+    });
+
+    // Temporitzador d'apagat (15m -> 30m -> 60m -> Apagat)
+    document.getElementById("sleepBtn").addEventListener("click", () => {
+      clearTimeout(sleepTimeout);
+      const steps = [0, 15, 30, 60];
+      sleepMinutes = steps[(steps.indexOf(sleepMinutes) + 1) % steps.length];
+      const label = document.getElementById("sleepLabel");
+
+      if (sleepMinutes === 0) {
+        label.textContent = "";
+        statusMsg.textContent = "Temporitzador desactivat";
+        setTimeout(() => { if (statusMsg.textContent === "Temporitzador desactivat") statusMsg.textContent = ""; }, 2000);
+      } else {
+        label.textContent = `${sleepMinutes}m`;
+        statusMsg.textContent = `S'aturarà en ${sleepMinutes} minuts`;
+        setTimeout(() => { if (statusMsg.textContent.startsWith("S'aturarà")) statusMsg.textContent = ""; }, 2500);
+
+        sleepTimeout = setTimeout(() => {
+          stopPlayback();
+          sleepMinutes = 0;
+          label.textContent = "";
+          statusMsg.textContent = "Apagat automàtic completat";
+        }, sleepMinutes * 60 * 1000);
+      }
+    });
+
+    // Controls des de la pantalla bloquejada d'iPhone / Auriculars
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler("play", () => startPlayback());
+        navigator.mediaSession.setActionHandler("pause", stopPlayback);
+        navigator.mediaSession.setActionHandler("stop", stopPlayback);
+        navigator.mediaSession.setActionHandler("seekbackward", () => seekByDelta(-10));
+        navigator.mediaSession.setActionHandler("seekforward", () => seekByDelta(10));
+      } catch (e) {}
+    }
+
+    // Actualització automàtica del rellotge d'emissió (cada 1s) i de la graella (cada 60s)
+    clockTimer = setInterval(updateDvrClockUI, 1000);
+    metadataTimer = setInterval(() => {
+      fetchLiveProgramMetadata(currentStation);
+    }, 60000);
+
+    // Inicialització
+    updateUI();
+    updateDvrClockUI();
+  </script>
+</body>
+</html>
