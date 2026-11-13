@@ -680,14 +680,14 @@
 
     function syncMediaSession(title, artist) {
       if (!("mediaSession" in navigator)) return;
-      const iconUrl = new URL("/icona-catradio.png", window.location.origin).href;
+      const iconUrl = new URL("/catradio_player.jpg", window.location.origin).href;
       navigator.mediaSession.metadata = new MediaMetadata({
         title: title,
         artist: artist,
         album: "3Cat Directe",
         artwork: [
-          { src: iconUrl, sizes: "512x512", type: "image/png" },
-          { src: iconUrl, sizes: "1024x1024", type: "image/png" }
+          { src: iconUrl, sizes: "512x512", type: "image/jpeg" },
+          { src: iconUrl, sizes: "1024x1024", type: "image/jpeg" }
         ]
       });
     }
