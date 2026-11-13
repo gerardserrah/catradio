@@ -644,6 +644,43 @@
     let watchdogTimer = null;
     let clockTimer = null;
     let metadataTimer = null;
+    let iosYellowLogoDataUrl = null;
+
+    // Genera una imatge PNG quadrada 512x512 amb fons groc #FFD100 i el logo de CatRàdio en negre per a la pantalla de bloqueig d'iOS
+    function buildYellowCatRadioArtwork() {
+      return new Promise((resolve) => {
+        if (iosYellowLogoDataUrl) {
+          resolve(iosYellowLogoDataUrl);
+          return;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#FFD100";
+        ctx.fillRect(0, 0, 512, 512);
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          const targetW = 340;
+          const ratio = img.naturalHeight && img.naturalWidth ? img.naturalHeight / img.naturalWidth : 0.42;
+          const targetH = Math.round(targetW * ratio);
+          const x = Math.round((512 - targetW) / 2);
+          const y = Math.round((512 - targetH) / 2);
+          ctx.filter = "brightness(0)";
+          ctx.drawImage(img, x, y, targetW, targetH);
+          try {
+            iosYellowLogoDataUrl = canvas.toDataURL("image/png");
+          } catch (e) {
+            iosYellowLogoDataUrl = null;
+          }
+          resolve(iosYellowLogoDataUrl);
+        };
+        img.onerror = () => resolve(null);
+        img.src = "https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg";
+      });
+    }
 
     function getStreamUrl() {
       const station = STREAMS[currentStation];
@@ -717,18 +754,19 @@
 
       updateTimeshiftVisibility();
       setArtworkSafe(null, station.logo);
-      syncMediaSession(station.name, programHost.textContent, null);
+      syncMediaSession(station.name, programHost.textContent);
     }
 
-    function syncMediaSession(title, artist, artworkUrl) {
+    async function syncMediaSession(title, artist) {
       if (!("mediaSession" in navigator)) return;
+      const yellowLogo = await buildYellowCatRadioArtwork();
       const meta = {
         title: title,
         artist: artist,
         album: "3Cat Directe"
       };
-      if (artworkUrl) {
-        meta.artwork = [{ src: artworkUrl, sizes: "512x512", type: "image/jpeg" }];
+      if (yellowLogo) {
+        meta.artwork = [{ src: yellowLogo, sizes: "512x512", type: "image/png" }];
       }
       navigator.mediaSession.metadata = new MediaMetadata(meta);
     }
@@ -756,7 +794,7 @@
         if (info.artwork) {
           setArtworkSafe(info.artwork, station.logo);
         }
-        syncMediaSession(info.title, info.host || station.name, info.artwork || null);
+        syncMediaSession(info.title, info.host || station.name);
       } catch (e) {}
     }
 
@@ -770,6 +808,9 @@
       setLoading(false);
       playIcon.style.display = playing ? "none" : "block";
       pauseIcon.style.display = playing ? "block" : "none";
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+      }
     }
 
     function getSeekableRange() {
@@ -830,15 +871,18 @@
     }
 
     async function startPlayback(forceReload = false) {
-      // Si ja tenim el flux carregat i només estàvem en pausa, reprenem al punt exacte (sense tornar al directe)
-      if (!forceReload && activeStreamUrl && (audio.src || hlsInstance) && audio.readyState >= 1) {
+      // Si ja tenim el flux carregat i només estàvem en pausa, reprenem al punt exacte de manera síncrona (vital per a iOS en segon pla)
+      if (!forceReload && activeStreamUrl && (audio.src || hlsInstance)) {
         statusMsg.textContent = "";
-        audio.play().then(() => {
-          setPlayingState(true);
-          startWatchdog();
-        }).catch(() => {
-          startPlayback(true);
-        });
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            setPlayingState(true);
+            startWatchdog();
+          }).catch(() => {
+            startPlayback(true);
+          });
+        }
         return;
       }
 
@@ -854,8 +898,22 @@
 
       const url = await resolveBestStreamUrl();
       activeStreamUrl = url;
+      const isNativeHls = Boolean(audio.canPlayType("application/vnd.apple.mpegurl"));
 
-      // 1. Si el navegador suporta hls.js i el flux és .m3u8, activem DVR + memòria cau de 2 hores
+      // 1. Prioritzem HLS natiu a Safari / iOS perquè mantingui la sessió d'àudio viva en segon pla i es pugui reprendre des de fora l'app
+      if (isNativeHls && url.includes(".m3u8")) {
+        audio.src = url;
+        audio.load();
+        audio.play().then(() => {
+          setPlayingState(true);
+          startWatchdog();
+        }).catch(() => {
+          playFallbackMp3();
+        });
+        return;
+      }
+
+      // 2. En navegadors sense HLS natiu (Chrome/Firefox escriptori o Android), fem servir hls.js
       if (typeof Hls !== "undefined" && Hls.isSupported() && url.includes(".m3u8")) {
         const hls = new Hls({
           enableWorker: true,
@@ -889,11 +947,9 @@
         return;
       }
 
-      // 2. Safari iOS natiu (suport HLS integrat)
-      const cleanUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
-      audio.src = cleanUrl;
+      // 3. Fallback directe
+      audio.src = url;
       audio.load();
-
       audio.play().then(() => {
         setPlayingState(true);
         startWatchdog();
@@ -1097,7 +1153,16 @@
     });
 
     if ("mediaSession" in navigator) {
-      navigator.mediaSession.setActionHandler("play", () => startPlayback(false));
+      navigator.mediaSession.setActionHandler("play", () => {
+        if (activeStreamUrl && audio.src) {
+          audio.play().then(() => {
+            setPlayingState(true);
+            startWatchdog();
+          }).catch(() => startPlayback(false));
+        } else {
+          startPlayback(false);
+        }
+      });
       navigator.mediaSession.setActionHandler("pause", pausePlayback);
       navigator.mediaSession.setActionHandler("seekbackward", () => {
         if (!isTimeshiftSupported()) return;
