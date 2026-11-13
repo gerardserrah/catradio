@@ -54,7 +54,7 @@
       --bg: #0a0a0a;
       --card-bg: #141414;
       --border: #262626;
-      --yellow: #ffd100;
+      --accent-color: #ffd100;
       --text: #ffffff;
       --muted: #9ca3af;
       --ambient-color: rgba(255, 209, 0, 0.14);
@@ -94,12 +94,12 @@
       padding: calc(env(safe-area-inset-top, 16px) + 10px) 20px calc(env(safe-area-inset-bottom, 20px) + 12px) 20px;
     }
 
-    /* Capçalera neta */
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: 4px;
+    /* Graella de 5 emissores oficials */
+    .stations-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 8px;
     }
 
     .live-badge {
@@ -323,9 +323,10 @@
     }
 
     .lag-tag {
-      color: var(--yellow);
+      color: var(--accent-color);
       font-weight: 600;
       margin-left: 6px;
+      transition: color 0.3s ease;
     }
 
     .scrubber {
@@ -362,7 +363,7 @@
 
     .scrubber:active::-webkit-slider-thumb {
       transform: scale(1.25);
-      background: var(--yellow);
+      background: var(--accent-color);
     }
 
     /* Botons de control de reproducció */
@@ -384,15 +385,18 @@
     }
 
     .live-jump-btn {
-      background: rgba(239, 68, 68, 0.16);
-      border: 1px solid rgba(239, 68, 68, 0.45);
-      color: #fca5a5;
+      font-family: var(--font-bold);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
       border-radius: 999px;
-      padding: 6px 11px;
+      padding: 5px 12px;
       font-size: 11px;
       font-weight: 700;
+      letter-spacing: 0.05em;
       cursor: pointer;
       display: none;
+      transition: color 0.3s ease, border-color 0.3s ease;
     }
 
     .play-wrapper {
@@ -438,10 +442,11 @@
 
     .status-msg {
       font-size: 12px;
-      color: var(--yellow);
+      color: var(--accent-color);
       text-align: center;
       min-height: 16px;
       margin-bottom: 4px;
+      transition: color 0.3s ease;
     }
 
     /* Peu amb reconnexió */
@@ -468,14 +473,6 @@
 
   <div class="app-shell">
     <div>
-      <!-- Capçalera neta -->
-      <div class="header">
-        <div class="live-badge">
-          <span class="dot"></span>
-          <span>EN DIRECTE</span>
-        </div>
-      </div>
-
       <!-- Selector dels 5 canals oficials -->
       <div class="stations-grid" id="stationsGrid">
         <button class="station-btn active" data-id="catradio" aria-label="Catalunya Ràdio">
@@ -527,7 +524,7 @@
             <span class="lag-tag" id="lagTag"></span>
           </div>
           <div>
-            <button class="live-jump-btn" id="liveJumpBtn">• DIRECTE</button>
+            <button class="live-jump-btn" id="liveJumpBtn">DIRECTE ›</button>
           </div>
         </div>
         <input type="range" class="scrubber" id="scrubber" min="0" max="100" value="100" step="0.1" />
@@ -577,6 +574,7 @@
         name: "Catalunya Ràdio",
         pvideoId: "cr",
         logo: "/logos/catradio.svg",
+        accent: "#FFD100",
         ambient: "rgba(255, 209, 0, 0.14)",
         urls: {
           barcelona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-hls/master.m3u8",
@@ -590,6 +588,7 @@
         name: "CatRàdio Exclusiu Digital",
         pvideoId: "ocr1",
         logo: "/logos/exclusiudigital.svg",
+        accent: "#F5A800",
         ambient: "rgba(245, 168, 0, 0.14)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-digital-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyaradioHD.mp3"
@@ -598,6 +597,7 @@
         name: "3CatInfo",
         pvideoId: "ci",
         logo: "/logos/info.svg",
+        accent: "#F25400",
         ambient: "rgba(242, 84, 0, 0.14)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-informacio-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyainformacioHD.mp3"
@@ -606,6 +606,7 @@
         name: "iCat",
         pvideoId: "ic",
         logo: "/logos/icat.svg",
+        accent: "#C4162A",
         ambient: "rgba(196, 22, 42, 0.16)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/icat-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/icatHD.mp3"
@@ -614,6 +615,7 @@
         name: "Catalunya Música",
         pvideoId: "cm",
         logo: "/logos/catmus.svg",
+        accent: "#429B2B",
         ambient: "rgba(66, 155, 43, 0.15)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-musica-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyamusicaHD.mp3"
@@ -1087,6 +1089,7 @@
 
       currentStation = newId;
       document.documentElement.style.setProperty("--ambient-color", STREAMS[currentStation].ambient);
+      document.documentElement.style.setProperty("--accent-color", STREAMS[currentStation].accent);
       territorialRow.style.visibility = currentStation === "catradio" ? "visible" : "hidden";
 
       updateTimeshiftVisibility();
