@@ -19,13 +19,37 @@
            url("/fonts/Bw3Cat-Regular.woff") format("woff"),
            url("/fonts/Bw3Cat-Regular.ttf") format("truetype"),
            url("/fonts/Bw3Cat-Regular.otf") format("opentype");
-      font-weight: 100 900;
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Bw3Cat-Bold";
+      src: url("/fonts/Bw3Cat-Bold.woff2") format("woff2"),
+           url("/fonts/Bw3Cat-Bold.woff") format("woff"),
+           url("/fonts/Bw3Cat-Bold.ttf") format("truetype"),
+           url("/fonts/Bw3Cat-Bold.otf") format("opentype");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Bw3Cat-Black";
+      src: url("/fonts/Bw3Cat-Black.woff2") format("woff2"),
+           url("/fonts/Bw3Cat-Black.woff") format("woff"),
+           url("/fonts/Bw3Cat-Black.ttf") format("truetype"),
+           url("/fonts/Bw3Cat-Black.otf") format("opentype");
+      font-weight: 900;
       font-style: normal;
       font-display: swap;
     }
 
     :root {
       --font-main: "Bw3Cat-Regular", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      --font-bold: "Bw3Cat-Bold", var(--font-main);
+      --font-black: "Bw3Cat-Black", var(--font-main);
       --bg: #0a0a0a;
       --card-bg: #141414;
       --border: #262626;
@@ -81,6 +105,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      font-family: var(--font-bold);
       font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.06em;
@@ -245,8 +270,9 @@
     }
 
     .program-title {
+      font-family: var(--font-black);
       font-size: 20px;
-      font-weight: 700;
+      font-weight: 900;
       margin: 0 0 6px 0;
       letter-spacing: -0.01em;
       line-height: 1.25;
