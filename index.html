@@ -654,6 +654,8 @@
     let watchdogTimer = null;
     let clockTimer = null;
     let metadataTimer = null;
+    let liveChannelData = null;
+    let lastRenderedProgramKey = "";
 
     function isTimeshiftSupported() {
       if (currentStation === "catradio" && territorialSelect.value !== "barcelona") {
@@ -726,16 +728,9 @@
           const data = await res.json();
           const info = data?.channels?.[currentStation];
           if (info && info.title) {
-            programTitle.textContent = info.title;
-            programHost.textContent = info.host || defaultSubtitle;
-            if (info.next) {
-              nextPill.textContent = info.next;
-              nextPill.style.display = "inline-block";
-            } else {
-              nextPill.style.display = "none";
-            }
-            setArtworkSafe(info.artwork, st.logo);
-            syncMediaSession(info.title, info.host || st.name);
+            liveChannelData = info;
+            lastRenderedProgramKey = "";
+            updateProgramForTimestamp(Date.now() - (STREAM_DELAY_SECONDS * 1000), false);
             return;
           }
         }
@@ -744,11 +739,68 @@
       }
 
       // Fallback net sense inventar programes si no hi ha resposta
+      liveChannelData = null;
+      lastRenderedProgramKey = "";
       programTitle.textContent = st.name;
       programHost.textContent = defaultSubtitle;
       nextPill.style.display = "none";
       setArtworkSafe(null, st.logo);
       syncMediaSession(st.name, defaultSubtitle);
+    }
+
+    function updateProgramForTimestamp(emissionTimestampMs, isHistorical) {
+      const st = STREAMS[currentStation];
+      const terrName = territorialSelect.options[territorialSelect.selectedIndex].text;
+      const defaultSubtitle = currentStation === "catradio"
+        ? `Connexió territorial: ${terrName}`
+        : "Emissió en directe";
+
+      if (!liveChannelData) return;
+
+      let chosen = {
+        title: liveChannelData.title,
+        host: liveChannelData.host || defaultSubtitle,
+        artwork: liveChannelData.artwork,
+        next: liveChannelData.next || ""
+      };
+
+      // Si estem escoltant minuts/hores enrere, cerquem a la graella horària quin programa sonava llavors
+      if (isHistorical && Array.isArray(liveChannelData.schedule) && liveChannelData.schedule.length > 0) {
+        const idx = liveChannelData.schedule.findIndex((item) => {
+          const end = item.endMs || (item.startMs + 4 * 3600 * 1000);
+          return emissionTimestampMs >= item.startMs && emissionTimestampMs < end;
+        });
+
+        if (idx !== -1) {
+          const slot = liveChannelData.schedule[idx];
+          const nextSlot = liveChannelData.schedule[idx + 1];
+          const nextHourStr = nextSlot
+            ? new Date(nextSlot.startMs).toLocaleTimeString("ca-ES", { hour: "2-digit", minute: "2-digit" })
+            : "";
+
+          chosen = {
+            title: slot.title,
+            host: slot.host || defaultSubtitle,
+            artwork: slot.artwork || liveChannelData.artwork,
+            next: nextSlot ? `Després: ${nextHourStr} ${nextSlot.title}`.trim() : ""
+          };
+        }
+      }
+
+      const renderKey = `${currentStation}|${chosen.title}|${chosen.artwork}|${chosen.next}`;
+      if (renderKey === lastRenderedProgramKey) return;
+      lastRenderedProgramKey = renderKey;
+
+      programTitle.textContent = chosen.title;
+      programHost.textContent = chosen.host;
+      if (chosen.next) {
+        nextPill.textContent = chosen.next;
+        nextPill.style.display = "inline-block";
+      } else {
+        nextPill.style.display = "none";
+      }
+      setArtworkSafe(chosen.artwork, st.logo);
+      syncMediaSession(chosen.title, chosen.host || st.name);
     }
 
     function getSeekableRange() {
@@ -796,6 +848,7 @@
 
       const emissionTimestamp = Date.now() - ((STREAM_DELAY_SECONDS + lagSeconds) * 1000);
       listeningClock.textContent = formatCatalanTime(new Date(emissionTimestamp));
+      updateProgramForTimestamp(emissionTimestamp, lagSeconds > 15);
 
       if (lagSeconds > 4) {
         const mins = Math.floor(lagSeconds / 60);
@@ -1051,6 +1104,7 @@
       const lagSeconds = Math.max(0, Math.round(range.end - targetTime));
       const emissionTimestamp = Date.now() - ((STREAM_DELAY_SECONDS + lagSeconds) * 1000);
       listeningClock.textContent = formatCatalanTime(new Date(emissionTimestamp));
+      updateProgramForTimestamp(emissionTimestamp, lagSeconds > 15);
       if (lagSeconds > 4) {
         const mins = Math.floor(lagSeconds / 60);
         const secs = lagSeconds % 60;
