@@ -701,16 +701,15 @@
         artwork.classList.add("is-logo-fallback");
         return;
       }
-      const tester = new Image();
-      tester.onload = () => {
-        artwork.src = url;
-        artwork.classList.remove("is-logo-fallback");
-      };
-      tester.onerror = () => {
+      artwork.onerror = () => {
+        artwork.onerror = null;
         artwork.src = fallbackLogo;
         artwork.classList.add("is-logo-fallback");
       };
-      tester.src = url;
+      artwork.onload = () => {
+        artwork.classList.remove("is-logo-fallback");
+      };
+      artwork.src = url;
     }
 
     // Llegeix la programació i caràtula reals des de /api/graella (Vercel)
@@ -722,7 +721,7 @@
         : "Emissió en directe";
 
       try {
-        const res = await fetch("/api/graella", { cache: "no-store" });
+        const res = await fetch(`/api/graella?t=${Date.now()}`, { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           const info = data?.channels?.[currentStation];
@@ -740,7 +739,9 @@
             return;
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("No s'ha pogut obtenir /api/graella:", e);
+      }
 
       // Fallback net sense inventar programes si no hi ha resposta
       programTitle.textContent = st.name;
