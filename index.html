@@ -790,7 +790,7 @@
     const hourJumpLabel = document.getElementById("hourJumpLabel");
     const scrubber = document.getElementById("scrubber");
 
-    const STREAM_DELAY_SECONDS = 30; // Compensació del retard habitual del flux HLS DVR (20s addicionals)
+    const STREAM_DELAY_SECONDS = 40; // Compensació exacta del retard del flux HLS DVR + coixí de directe (ajustat -10s)
     const LIVE_EDGE_CUSHION_SECONDS = 18; // Coixí de seguretat (3 segments HLS de 6s) per evitar micro-talls al directe
     let currentStation = "catradio";
     let isPlaying = false;
