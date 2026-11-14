@@ -117,46 +117,51 @@
     }
 
     .app-shell {
-      width: 100%;
+      width: var(--portrait-w, 100%);
       max-width: 440px;
-      height: var(--app-height, 100dvh);
-      min-height: 100%;
+      height: var(--portrait-h, var(--app-height, 100dvh));
+      min-height: var(--portrait-h, 100%);
+      max-height: var(--portrait-h, 100%);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: calc(env(safe-area-inset-top, 16px) + 6px) 20px calc(env(safe-area-inset-bottom, 16px) + 10px) 20px;
+      padding: var(--locked-pad-top, calc(env(safe-area-inset-top, 16px) + 6px)) 20px var(--locked-pad-bottom, calc(env(safe-area-inset-bottom, 16px) + 10px)) 20px;
     }
 
-    /* Bloqueja la rotació horitzontal en mòbils mantenint sempre el format vertical */
-    @media screen and (orientation: landscape) and (max-height: 540px) {
-      html, body {
-        width: var(--portrait-w, 100dvh) !important;
-        height: var(--portrait-h, 100dvw) !important;
-        min-height: var(--portrait-h, 100dvw) !important;
-        overflow: hidden !important;
-      }
-      body {
-        position: fixed;
-        top: 100%;
-        left: 0;
-        right: auto;
-        bottom: auto;
-        transform: rotate(-90deg);
-        transform-origin: left top;
-      }
-      .app-shell {
-        width: var(--portrait-w, 100dvh) !important;
-        height: var(--portrait-h, 100dvw) !important;
-        max-width: 440px;
-      }
+    /* Bloqueja la rotació horitzontal en mòbils mantenint exactament les dimensions i posicions verticals */
+    html[data-landscape-lock="left"],
+    html[data-landscape-lock="right"] {
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
     }
 
-    /* Graella de 5 emissores oficials */
-    .stations-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 8px;
-      margin-top: 8px;
+    html[data-landscape-lock="left"] body {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: var(--portrait-w) !important;
+      height: var(--portrait-h) !important;
+      min-height: var(--portrait-h) !important;
+      max-height: var(--portrait-h) !important;
+      transform-origin: 0 0 !important;
+      transform: translateY(var(--portrait-w)) rotate(-90deg) !important;
+    }
+
+    html[data-landscape-lock="right"] body {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: var(--portrait-w) !important;
+      height: var(--portrait-h) !important;
+      min-height: var(--portrait-h) !important;
+      max-height: var(--portrait-h) !important;
+      transform-origin: 0 0 !important;
+      transform: translateX(var(--portrait-h)) rotate(90deg) !important;
     }
 
     .live-badge {
@@ -184,18 +189,45 @@
       50% { opacity: 0.35; }
     }
 
-    /* Graella de 5 emissores oficials */
+    /* Graella de 5 emissores oficials amb pastilla de color lliscant */
     .stations-grid {
+      position: relative;
+      z-index: 1;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 8px;
       margin-top: 16px;
+      touch-action: none;
+    }
+
+    .station-slider-pill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: var(--pill-w, calc((100% - 32px) / 5));
+      height: var(--pill-h, 100%);
+      background-color: var(--pill-color, #FFD100);
+      border: 1px solid var(--pill-color, #FFD100);
+      border-radius: 4px;
+      z-index: 2;
+      pointer-events: none;
+      transform: translate3d(var(--pill-x, 0px), 0, 0);
+      will-change: transform, background-color, border-color;
+      transition:
+        transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 0.24s ease,
+        border-color 0.24s ease;
+    }
+
+    .station-slider-pill.is-dragging {
+      transition: none;
     }
 
     .station-btn {
+      position: relative;
       aspect-ratio: 1 / 1;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+      background: transparent;
+      border: none;
       border-radius: 4px;
       display: flex;
       flex-direction: column;
@@ -203,56 +235,51 @@
       justify-content: center;
       padding: 6px;
       cursor: pointer;
-      transition: transform 0.18s ease, background-color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
     }
 
-    .station-btn:active {
-      transform: scale(0.95);
+    .station-btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .station-btn:active img {
+      transform: scale(0.94);
     }
 
     .station-btn img {
+      position: relative;
+      z-index: 3;
       width: 82%;
       height: 82%;
       object-fit: contain;
       filter: brightness(0) invert(1);
       pointer-events: none;
-      transition: filter 0.35s ease, opacity 0.35s ease, transform 0.25s ease;
+      transition: filter 0.22s ease, opacity 0.22s ease, transform 0.2s ease;
     }
 
-    /* Colors actius oficials per emissora */
-    .station-btn[data-id="catradio"].active {
-      background: #FFD100;
-      border-color: #FFD100;
-    }
+    /* Contrast dels logotips quan la pastilla de color és a sota */
     .station-btn[data-id="catradio"].active img {
       filter: brightness(0);
     }
 
-    .station-btn[data-id="digital"].active {
-      background: #F5A800;
-      border-color: #F5A800;
-    }
     .station-btn[data-id="digital"].active img {
       filter: brightness(0);
     }
 
-    .station-btn[data-id="catinfo"].active {
-      background: #F25400;
-      border-color: #F25400;
+    .station-btn[data-id="catinfo"].active img {
+      filter: brightness(0) invert(1);
     }
 
-    .station-btn[data-id="icat"].active {
-      background: #C4162A;
-      border-color: #C4162A;
-    }
     .station-btn[data-id="icat"].active img {
       filter: none;
     }
 
-    .station-btn[data-id="catmusica"].active {
-      background: #429B2B;
-      border-color: #429B2B;
-    }
     .station-btn[data-id="catmusica"].active img {
       filter: brightness(0) invert(1);
     }
@@ -303,8 +330,8 @@
     .artwork-wrapper {
       position: relative;
       z-index: 1;
-      width: min(252px, 62vw);
-      height: min(252px, 62vw);
+      width: min(252px, calc(var(--portrait-w, 100vw) * 0.62));
+      height: min(252px, calc(var(--portrait-w, 100vw) * 0.62));
       border-radius: 10px;
       background: #121212;
       box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
@@ -420,31 +447,36 @@
       gap: 6px;
       color: #d1d5db;
       font-weight: 500;
-      will-change: transform, color;
+      will-change: color;
       transition: color 0.25s ease;
     }
 
     .clock-display .clock-icon {
       color: #b4bcc8;
       flex-shrink: 0;
-      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), color 0.25s ease;
+      transition: color 0.25s ease;
     }
 
     .clock-display.seek-nudge-left,
     .clock-display.seek-nudge-right {
-      animation: clockNudgeUp 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+      animation: clockAccentFlash 0.55s ease;
     }
 
     .clock-display.seek-nudge-left .clock-icon,
     .clock-display.seek-nudge-right .clock-icon {
-      transform: scale(1.16);
-      color: var(--accent-color);
+      animation: clockIconAccentFlash 0.55s ease;
     }
 
-    @keyframes clockNudgeUp {
-      0% { transform: translateY(0); }
-      38% { transform: translateY(-4.5px); color: #ffffff; }
-      100% { transform: translateY(0); }
+    @keyframes clockAccentFlash {
+      0% { color: var(--accent-color); }
+      55% { color: var(--accent-color); }
+      100% { color: #d1d5db; }
+    }
+
+    @keyframes clockIconAccentFlash {
+      0% { color: var(--accent-color); }
+      55% { color: var(--accent-color); }
+      100% { color: #b4bcc8; }
     }
 
     .scrubber-wrap {
@@ -587,7 +619,7 @@
     }
 
     .skip-btn:active {
-      transform: scale(1.16);
+      transform: scale(1.05);
       color: #ffffff;
     }
 
@@ -602,12 +634,12 @@
 
     .skip-btn.skip-anim-back svg,
     .skip-btn.skip-anim-fwd svg {
-      animation: skipPopScale 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+      animation: skipPopScale 0.28s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     @keyframes skipPopScale {
       0% { transform: scale(1); }
-      40% { transform: scale(1.22); color: var(--accent-color); }
+      42% { transform: scale(1.08); color: var(--accent-color); }
       100% { transform: scale(1); }
     }
 
@@ -906,6 +938,7 @@
     <div>
       <!-- Selector dels 5 canals oficials -->
       <div class="stations-grid" id="stationsGrid">
+        <div class="station-slider-pill" id="stationSliderPill" aria-hidden="true"></div>
         <button class="station-btn active" data-id="catradio" aria-label="Catalunya Ràdio">
           <img src="/logos/catradio.svg" onerror="this.src='https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg'" alt="Catràdio" />
         </button>
@@ -1039,8 +1072,8 @@
     </div>
   </div>
 
-  <!-- Reproductor natiu HTML5 (amb crossorigin per permetre control de volum via WebAudio GainNode a iOS) -->
-  <audio id="audioPlayer" preload="auto" autoplay playsinline crossorigin="anonymous" x-webkit-airplay="allow"></audio>
+  <!-- Reproductor natiu HTML5 (màxima estabilitat i suport d'AirPlay i fons) -->
+  <audio id="audioPlayer" preload="auto" autoplay playsinline x-webkit-airplay="allow"></audio>
 
   <script>
     const STREAMS = {
@@ -1130,8 +1163,16 @@
     const volWave2 = document.getElementById("volWave2");
     const volMuteSlash = document.getElementById("volMuteSlash");
     const airplayBtn = document.getElementById("airplayBtn");
+    const appShell = document.querySelector(".app-shell");
+    const stationsGrid = document.getElementById("stationsGrid");
+    const stationSliderPill = document.getElementById("stationSliderPill");
 
-    // Garanteix que la webapp ocupi sempre el 100% de l'alçada física a iOS i bloqueja la rotació en mòbils
+    let lockedPortraitW = null;
+    let lockedPortraitH = null;
+    let lockedPadTop = null;
+    let lockedPadBottom = null;
+
+    // Garanteix que la webapp ocupi sempre el 100% de l'alçada física a iOS i bloqueja la rotació en mòbils sense cap salt ni recol·locació
     function syncViewportHeight() {
       if (screen.orientation && typeof screen.orientation.lock === "function") {
         screen.orientation.lock("portrait").catch(() => {});
@@ -1142,42 +1183,60 @@
       const innerW = Math.round(window.innerWidth || 0);
       const innerH = Math.round(window.innerHeight || 0);
       const clientH = Math.round(document.documentElement.clientHeight || 0);
+      const screenW = (window.screen && window.screen.width) ? Math.round(window.screen.width) : 0;
       const screenH = (window.screen && window.screen.height) ? Math.round(window.screen.height) : 0;
-      const isMobileLandscape = innerW > innerH && innerH <= 540;
+      const isMobileDevice = Math.min(innerW, innerH) <= 560 || Math.min(screenW || 9999, screenH || 9999) <= 560;
+      const isMobileLandscape = isMobileDevice && innerW > innerH;
+
       if (isMobileLandscape) {
-        document.documentElement.style.setProperty("--portrait-w", `${innerH}px`);
-        document.documentElement.style.setProperty("--portrait-h", `${innerW}px`);
-        document.documentElement.style.setProperty("--app-height", `${innerW}px`);
+        if (!lockedPortraitW || !lockedPortraitH) {
+          const pW = Math.min(innerW, innerH);
+          const pH = Math.max(innerW, innerH, screenW, screenH);
+          lockedPortraitW = pW;
+          lockedPortraitH = pH;
+          document.documentElement.style.setProperty("--portrait-w", `${lockedPortraitW}px`);
+          document.documentElement.style.setProperty("--portrait-h", `${lockedPortraitH}px`);
+          document.documentElement.style.setProperty("--app-height", `${lockedPortraitH}px`);
+        }
+        const rawAngle = (screen.orientation && typeof screen.orientation.angle === "number")
+          ? screen.orientation.angle
+          : (typeof window.orientation === "number" ? window.orientation : 90);
+        const dir = (rawAngle === -90 || rawAngle === 270) ? "right" : "left";
+        document.documentElement.setAttribute("data-landscape-lock", dir);
+        requestAnimationFrame(() => updateStationPillToCurrent());
         return;
       }
-      const isPortrait = !window.matchMedia || window.matchMedia("(orientation: portrait)").matches;
-      const baseH = Math.max(innerH, clientH, vvHeight);
-      const targetH = (isStandalone && isPortrait && screenH >= baseH && (screenH - baseH) <= 115)
-        ? screenH
-        : baseH;
-      if (targetH > 0) {
-        document.documentElement.style.setProperty("--app-height", `${targetH}px`);
-      }
-    }
-    syncViewportHeight();
-    window.addEventListener("resize", syncViewportHeight);
-    window.addEventListener("orientationchange", () => {
-      syncViewportHeight();
-      setTimeout(syncViewportHeight, 120);
-      setTimeout(syncViewportHeight, 350);
-    });
-    window.addEventListener("pageshow", () => {
-      syncViewportHeight();
-      setTimeout(syncViewportHeight, 100);
-    });
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") {
-        syncViewportHeight();
-        setTimeout(syncViewportHeight, 100);
-      }
-    });
 
-    const STREAM_DELAY_SECONDS = 52; // Compensació exacta del retard del flux HLS DVR + coixí de directe (ajustat -12s addicionals)
+      document.documentElement.removeAttribute("data-landscape-lock");
+      const maxScreenDim = Math.max(screenW, screenH);
+      const baseH = Math.max(innerH, clientH, vvHeight);
+      const targetH = (isStandalone && maxScreenDim >= baseH && (maxScreenDim - baseH) <= 115)
+        ? maxScreenDim
+        : baseH;
+
+      if (innerW > 0 && targetH > 0) {
+        lockedPortraitW = innerW;
+        lockedPortraitH = targetH;
+        document.documentElement.style.setProperty("--portrait-w", `${lockedPortraitW}px`);
+        document.documentElement.style.setProperty("--portrait-h", `${lockedPortraitH}px`);
+        document.documentElement.style.setProperty("--app-height", `${lockedPortraitH}px`);
+      }
+
+      if (appShell && (!lockedPadTop || !lockedPadBottom)) {
+        const cs = window.getComputedStyle(appShell);
+        const pt = parseFloat(cs.paddingTop);
+        const pb = parseFloat(cs.paddingBottom);
+        if (pt > 0 && pb > 0) {
+          lockedPadTop = `${pt}px`;
+          lockedPadBottom = `${pb}px`;
+          document.documentElement.style.setProperty("--locked-pad-top", lockedPadTop);
+          document.documentElement.style.setProperty("--locked-pad-bottom", lockedPadBottom);
+        }
+      }
+      requestAnimationFrame(() => updateStationPillToCurrent());
+    }
+
+    const STREAM_DELAY_SECONDS = 32; // Compensació exacta del retard del flux HLS DVR (ajustat per quadrar exacte amb l'hora en punt)
     const LIVE_EDGE_CUSHION_SECONDS = 24; // Coixí de seguretat (4 segments HLS de 6s) per evitar micro-talls al directe
     let currentStation = "catradio";
     let isPlaying = false;
@@ -1207,6 +1266,36 @@
     let lastRenderedProgramKey = "";
     let currentArtworkTarget = "";
     let artworkLoadToken = 0;
+
+    function updateStationPillToCurrent() {
+      if (!stationsGrid || !stationSliderPill) return;
+      const activeBtn = stationsGrid.querySelector(`.station-btn[data-id="${currentStation}"]`) ||
+        stationsGrid.querySelector(".station-btn.active");
+      if (!activeBtn) return;
+      stationSliderPill.classList.remove("is-dragging");
+      stationSliderPill.style.setProperty("--pill-w", `${activeBtn.offsetWidth}px`);
+      stationSliderPill.style.setProperty("--pill-h", `${activeBtn.offsetHeight}px`);
+      stationSliderPill.style.setProperty("--pill-x", `${activeBtn.offsetLeft}px`);
+      stationSliderPill.style.setProperty("--pill-color", STREAMS[currentStation].accent);
+    }
+
+    syncViewportHeight();
+    window.addEventListener("resize", syncViewportHeight);
+    window.addEventListener("orientationchange", () => {
+      syncViewportHeight();
+      setTimeout(syncViewportHeight, 60);
+      setTimeout(syncViewportHeight, 180);
+    });
+    window.addEventListener("pageshow", () => {
+      syncViewportHeight();
+      setTimeout(syncViewportHeight, 100);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        syncViewportHeight();
+        setTimeout(syncViewportHeight, 100);
+      }
+    });
 
     function isTimeshiftSupported() {
       if (currentStation === "catradio" && territorialSelect.value !== "barcelona") {
@@ -1620,8 +1709,9 @@
     function setPlayingState(playing) {
       const changed = isPlaying !== playing;
       if (playing && pausedAtEmissionMs !== null) {
+        const range = getSeekableRange();
         const liveEmissionMs = Date.now() - (STREAM_DELAY_SECONDS * 1000);
-        const maxSpan = getDvrWindowSeconds(getSeekableRange());
+        const maxSpan = getDvrWindowSeconds(range);
         currentLagSeconds = Math.min(maxSpan, Math.max(0, Math.round((liveEmissionMs - pausedAtEmissionMs) / 1000)));
         pausedAtEmissionMs = null;
       }
@@ -1711,6 +1801,7 @@
         });
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(audio);
+
         hlsInstance.on(Hls.Events.MANIFEST_PARSED, async () => {
           try {
             await audio.play();
@@ -1837,9 +1928,10 @@
         const range = getSeekableRange();
         if (range) {
           const safeLiveEnd = getSafeLiveTarget(range);
+          const liveEmissionMs = Date.now() - (STREAM_DELAY_SECONDS * 1000);
           currentLagSeconds = Math.max(0, currentLagSeconds - offset);
           if (pausedAtEmissionMs !== null) {
-            pausedAtEmissionMs = Math.min(Date.now() - (STREAM_DELAY_SECONDS * 1000), pausedAtEmissionMs + offset * 1000);
+            pausedAtEmissionMs = Math.min(liveEmissionMs, pausedAtEmissionMs + offset * 1000);
           }
           audio.currentTime = Math.min(safeLiveEnd, audio.currentTime + offset);
           updateDvrClockUI();
@@ -1866,7 +1958,7 @@
 
     // Esdeveniments d'àudio natius (sincronitza estat, aplica coixí anti-talls a l'inici i reprèn després d'interrupcions com WhatsApp)
     const tryPendingAutoplay = () => {
-      if (!autoplayPending || isPlaying || manualPauseRequested || !audio.src) return;
+      if (!autoplayPending || isPlaying || manualPauseRequested || !(audio.src || hlsInstance)) return;
       audio.play().then(() => {
         autoplayPending = false;
         setLoading(false);
@@ -1915,7 +2007,7 @@
 
     // Quan s'acaba l'àudio de WhatsApp i tornem a la pantalla o el sistema allibera l'àudio, reprenem on s'havia quedat
     const tryAutoResumeAfterInterruption = () => {
-      if (!userWantedPlaying || !wasInterruptedExternally || !audio.paused || !audio.src) return;
+      if (!userWantedPlaying || !wasInterruptedExternally || !audio.paused || !(audio.src || hlsInstance)) return;
       const targetTime = resumeSavedTime;
       audio.play().then(() => {
         wasInterruptedExternally = false;
@@ -1980,9 +2072,10 @@
       const range = getSeekableRange();
       if (!range) return;
       const safeLiveEnd = getSafeLiveTarget(range);
+      const liveEmissionMs = Date.now() - (STREAM_DELAY_SECONDS * 1000);
       currentLagSeconds = Math.max(0, currentLagSeconds - 10);
       if (pausedAtEmissionMs !== null) {
-        pausedAtEmissionMs = Math.min(Date.now() - (STREAM_DELAY_SECONDS * 1000), pausedAtEmissionMs + 10000);
+        pausedAtEmissionMs = Math.min(liveEmissionMs, pausedAtEmissionMs + 10000);
       }
       audio.currentTime = Math.min(safeLiveEnd, audio.currentTime + 10);
       updateDvrClockUI();
@@ -2053,7 +2146,9 @@
       lagTag.classList.add("is-visible");
       const pct = rawPct / 100;
       const lagSeconds = Math.max(0, Math.round((1 - pct) * scrubWindowSeconds));
-      const emissionTimestamp = Date.now() - ((STREAM_DELAY_SECONDS + lagSeconds) * 1000);
+      const range = getSeekableRange();
+      const liveEmissionMs = Date.now() - (STREAM_DELAY_SECONDS * 1000);
+      const emissionTimestamp = liveEmissionMs - (lagSeconds * 1000);
       const emissionDate = new Date(emissionTimestamp);
       listeningClock.textContent = formatCatalanTime(emissionDate);
       updateAnalogClockHands(emissionDate, clockHourHand, clockMinuteHand);
@@ -2095,51 +2190,9 @@
     scrubber.addEventListener("pointercancel", commitScrub);
     scrubber.addEventListener("touchcancel", commitScrub);
 
-    // Control de Volum i Silenci (amb WebAudio GainNode perquè reguli de 0% a 100% també a iOS)
+    // Control de Volum i Silenci
     let savedVolumeBeforeMute = 100;
     let currentVolumePct = 100;
-    let webAudioCtx = null;
-    let webAudioGain = null;
-    let webAudioSource = null;
-
-    function ensureWebAudioGain() {
-      if (webAudioGain && webAudioCtx) {
-        if (webAudioCtx.state === "suspended") {
-          webAudioCtx.resume().catch(() => {});
-        }
-        return webAudioGain;
-      }
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return null;
-      try {
-        if ("audioSession" in navigator && navigator.audioSession) {
-          try { navigator.audioSession.type = "playback"; } catch (e) {}
-        }
-        webAudioCtx = new AudioCtx();
-        webAudioGain = webAudioCtx.createGain();
-        webAudioGain.gain.value = currentVolumePct / 100;
-        webAudioSource = webAudioCtx.createMediaElementSource(audio);
-        webAudioSource.connect(webAudioGain);
-        webAudioGain.connect(webAudioCtx.destination);
-        webAudioCtx.onstatechange = () => {
-          if (isPlaying && webAudioCtx && webAudioCtx.state === "suspended") {
-            webAudioCtx.resume().catch(() => {});
-          }
-        };
-        if (webAudioCtx.state === "suspended") {
-          webAudioCtx.resume().catch(() => {});
-        }
-        return webAudioGain;
-      } catch (e) {
-        return null;
-      }
-    }
-
-    audio.addEventListener("play", () => {
-      if (webAudioCtx && webAudioCtx.state === "suspended") {
-        webAudioCtx.resume().catch(() => {});
-      }
-    });
 
     function updateVolumeUI(volPct) {
       const clamped = Math.min(100, Math.max(0, Math.round(volPct)));
@@ -2164,21 +2217,10 @@
       try {
         audio.volume = normalized;
       } catch (e) {}
-
-      const gain = ensureWebAudioGain();
-      if (gain && webAudioCtx) {
-        try {
-          gain.gain.setTargetAtTime(normalized, webAudioCtx.currentTime, 0.012);
-        } catch (e) {
-          gain.gain.value = normalized;
-        }
-      }
       updateVolumeUI(clamped);
     }
 
     if (volumeSlider) {
-      volumeSlider.addEventListener("pointerdown", () => ensureWebAudioGain());
-      volumeSlider.addEventListener("touchstart", () => ensureWebAudioGain(), { passive: true });
       volumeSlider.addEventListener("input", () => {
         applyVolumeFromPct(parseFloat(volumeSlider.value) || 0);
       });
@@ -2200,6 +2242,7 @@
     if (airplayBtn) {
       airplayBtn.addEventListener("click", () => {
         if (typeof audio.webkitShowPlaybackTargetPicker === "function") {
+          try { audio.disableRemotePlayback = false; } catch (e) {}
           if (!audio.src) {
             audio.src = getStreamUrl();
             audio.load();
@@ -2226,31 +2269,160 @@
 
     updateVolumeUI(100);
 
-    // Selector d'emissores
-    document.getElementById("stationsGrid").addEventListener("click", (e) => {
-      const btn = e.target.closest(".station-btn");
-      if (!btn) return;
-      const newId = btn.dataset.id;
-      if (newId === currentStation) return;
+    // Selector d'emissores amb lliscament horitzontal tàctil i interpolació del color
+    function hexToRgb(hex) {
+      const clean = String(hex || "#FFD100").replace("#", "");
+      const num = parseInt(clean, 16);
+      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+    }
 
-      document.querySelectorAll(".station-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
+    function lerpHexColor(hexA, hexB, t) {
+      const [r1, g1, b1] = hexToRgb(hexA);
+      const [r2, g2, b2] = hexToRgb(hexB);
+      const f = Math.min(1, Math.max(0, t));
+      const r = Math.round(r1 + (r2 - r1) * f);
+      const g = Math.round(g1 + (g2 - g1) * f);
+      const b = Math.round(b1 + (b2 - b1) * f);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
 
+    function applyStationThemeAndMetadata(newId, shouldStartAudio) {
+      const changedStation = newId !== currentStation;
       currentStation = newId;
-      currentLagSeconds = 0;
-      pausedAtEmissionMs = null;
-      liveChannelData = allChannelsData?.[currentStation] || null;
-      lastRenderedProgramKey = "";
+      document.querySelectorAll(".station-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.id === newId);
+      });
       document.documentElement.style.setProperty("--ambient-color", STREAMS[currentStation].ambient);
       document.documentElement.style.setProperty("--accent-color", STREAMS[currentStation].accent);
       playBtn.classList.toggle("light-icon", ["catinfo", "icat", "catmusica"].includes(currentStation));
       territorialRow.style.visibility = currentStation === "catradio" ? "visible" : "hidden";
 
-      updateTimeshiftVisibility();
-      updateDvrClockUI();
-      fetchLiveProgramMetadata();
-      startPlayback(true);
-    });
+      if (changedStation) {
+        currentLagSeconds = 0;
+        pausedAtEmissionMs = null;
+        liveChannelData = allChannelsData?.[currentStation] || null;
+        lastRenderedProgramKey = "";
+        updateTimeshiftVisibility();
+        updateDvrClockUI();
+      }
+
+      if (shouldStartAudio) {
+        updateStationPillToCurrent();
+        fetchLiveProgramMetadata();
+        startPlayback(true);
+      }
+    }
+
+    let stationDragState = null;
+    let lastCommittedStation = currentStation;
+
+    function getPointerGridRelX(clientX, clientY) {
+      if (!stationsGrid) return 0;
+      const rect = stationsGrid.getBoundingClientRect();
+      const lockDir = document.documentElement.getAttribute("data-landscape-lock");
+      if (lockDir === "left") {
+        return rect.bottom - clientY;
+      }
+      if (lockDir === "right") {
+        return clientY - rect.top;
+      }
+      return clientX - rect.left;
+    }
+
+    function updateStationDragAtPosition(clientX, clientY) {
+      if (!stationsGrid || !stationSliderPill) return;
+      const btns = Array.from(stationsGrid.querySelectorAll(".station-btn"));
+      if (btns.length === 0) return;
+
+      const btnW = btns[0].offsetWidth;
+      const btnH = btns[0].offsetHeight;
+      const minX = btns[0].offsetLeft;
+      const maxX = btns[btns.length - 1].offsetLeft;
+      const relX = getPointerGridRelX(clientX, clientY);
+      const clampedX = Math.max(minX, Math.min(maxX, relX - btnW / 2));
+
+      let segIdx = 0;
+      for (let i = 0; i < btns.length - 1; i++) {
+        if (clampedX >= btns[i].offsetLeft && clampedX <= btns[i + 1].offsetLeft) {
+          segIdx = i;
+          break;
+        }
+      }
+      const leftBtn = btns[segIdx];
+      const rightBtn = btns[Math.min(btns.length - 1, segIdx + 1)];
+      const span = Math.max(1, rightBtn.offsetLeft - leftBtn.offsetLeft);
+      const t = Math.min(1, Math.max(0, (clampedX - leftBtn.offsetLeft) / span));
+      const nearestBtn = t < 0.5 ? leftBtn : rightBtn;
+      const nearestId = nearestBtn.dataset.id;
+
+      const blendedColor = lerpHexColor(
+        STREAMS[leftBtn.dataset.id].accent,
+        STREAMS[rightBtn.dataset.id].accent,
+        t
+      );
+
+      stationSliderPill.classList.add("is-dragging");
+      stationSliderPill.style.setProperty("--pill-w", `${btnW}px`);
+      stationSliderPill.style.setProperty("--pill-h", `${btnH}px`);
+      stationSliderPill.style.setProperty("--pill-x", `${clampedX.toFixed(1)}px`);
+      stationSliderPill.style.setProperty("--pill-color", blendedColor);
+
+      if (nearestId !== currentStation) {
+        applyStationThemeAndMetadata(nearestId, false);
+      }
+    }
+
+    if (stationsGrid) {
+      stationsGrid.addEventListener("pointerdown", (e) => {
+        const tappedBtn = e.target.closest(".station-btn");
+        stationDragState = {
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+          hasMoved: false,
+          tappedId: tappedBtn ? tappedBtn.dataset.id : null
+        };
+        try { stationsGrid.setPointerCapture(e.pointerId); } catch (err) {}
+      });
+
+      stationsGrid.addEventListener("pointermove", (e) => {
+        if (!stationDragState || e.pointerId !== stationDragState.pointerId) return;
+        const dist = Math.hypot(e.clientX - stationDragState.startX, e.clientY - stationDragState.startY);
+        if (!stationDragState.hasMoved && dist > 4) {
+          stationDragState.hasMoved = true;
+        }
+        if (stationDragState.hasMoved) {
+          updateStationDragAtPosition(e.clientX, e.clientY);
+        }
+      });
+
+      const finishStationPointer = (e) => {
+        if (!stationDragState || (e.pointerId !== undefined && e.pointerId !== stationDragState.pointerId)) return;
+        const wasDragged = stationDragState.hasMoved;
+        const tappedId = stationDragState.tappedId;
+        stationDragState = null;
+
+        if (!wasDragged && tappedId) {
+          if (tappedId !== lastCommittedStation || tappedId !== currentStation) {
+            lastCommittedStation = tappedId;
+            applyStationThemeAndMetadata(tappedId, true);
+          } else {
+            updateStationPillToCurrent();
+          }
+          return;
+        }
+
+        updateStationPillToCurrent();
+        if (currentStation !== lastCommittedStation) {
+          lastCommittedStation = currentStation;
+          fetchLiveProgramMetadata();
+          startPlayback(true);
+        }
+      };
+
+      stationsGrid.addEventListener("pointerup", finishStationPointer);
+      stationsGrid.addEventListener("pointercancel", finishStationPointer);
+    }
 
     // Selector de connexió territorial (Barcelona, Girona, Lleida, Tarragona)
     territorialSelect.addEventListener("change", () => {
@@ -2264,6 +2436,7 @@
     });
 
     // Inicialització
+    updateStationPillToCurrent();
     updateTimeshiftVisibility();
     fetchLiveProgramMetadata();
     updateDvrClockUI();
@@ -2301,11 +2474,12 @@
         return;
       }
       lastAutoplayUnlockMs = Date.now();
-      if (audio.src) {
+      if (audio.src || hlsInstance) {
         audio.play().then(() => {
           autoplayPending = false;
           setLoading(false);
           setPlayingState(true);
+          snapClockToPlayhead();
           document.removeEventListener("pointerup", unlockAutoplayOnFirstGesture, true);
           document.removeEventListener("touchend", unlockAutoplayOnFirstGesture, true);
           document.removeEventListener("click", unlockAutoplayOnFirstGesture, true);
