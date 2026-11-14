@@ -246,15 +246,28 @@ export default async function handler(req, res) {
     return null;
   }
 
+  function stripTransientKeys(obj) {
+    if (!obj || typeof obj !== "object") return obj;
+    if (Array.isArray(obj)) return obj.map(stripTransientKeys);
+    const clone = {};
+    for (const k of Object.keys(obj)) {
+      if (/^(ara_sona|despres_sona|despres_fem|seguent|despres)$/i.test(k)) continue;
+      clone[k] = obj[k];
+    }
+    return clone;
+  }
+
   function extractMultimediaUrl(textChunk, objContext = null) {
-    if (objContext) {
-      const exactSquare = findSquareImageInObject(objContext);
+    const cleanContext = objContext ? stripTransientKeys(objContext) : null;
+    if (cleanContext) {
+      const exactSquare = findSquareImageInObject(cleanContext);
       if (exactSquare) return exactSquare;
 
-      const ctxStr = JSON.stringify(objContext);
+      const ctxStr = JSON.stringify(cleanContext);
       if (/not[ií]cies\s*3catinfo/i.test(ctxStr)) {
         return "/catinfo_cover.png";
       }
+      textChunk = ctxStr;
     }
 
     if (!textChunk) return null;
@@ -265,7 +278,7 @@ export default async function handler(req, res) {
     const matches = textChunk.match(/(?:https?:\/\/img\.3cat\.cat)?\/multimedia\/[^"'\s\\<>]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s\\<>]*)?/gi);
     if (!matches || matches.length === 0) return null;
 
-    const rejected = objContext ? collectNonSquareUrlsFromObject(objContext) : new Set();
+    const rejected = cleanContext ? collectNonSquareUrlsFromObject(cleanContext) : new Set();
     const valid = [...new Set(matches.map(normalizeImg).filter((u) => u && !rejected.has(u)))];
     if (valid.length === 0) return null;
 
@@ -605,7 +618,29 @@ export default async function handler(req, res) {
 
     for (const m of CHANNEL_MATCHERS) {
       if (channels[m.key]) {
-        channels[m.key].schedule = schedulesBySlug[m.graellaSlug] || [];
+        const rawSchedule = schedulesBySlug[m.graellaSlug] || [];
+        // Si és Exclusiu Digital, només fem servir la graella si el programa en emissió coincideix amb Catalunya Ràdio
+        const liveTitleNorm = (channels[m.key].title || "").toLowerCase().trim();
+        const canonicalArtworkByTitle = new Map();
+        if (liveTitleNorm && channels[m.key].artwork) {
+          canonicalArtworkByTitle.set(liveTitleNorm, channels[m.key].artwork);
+        }
+        for (const item of rawSchedule) {
+          const tNorm = (item.title || "").toLowerCase().trim();
+          if (tNorm && item.artwork && !canonicalArtworkByTitle.has(tNorm)) {
+            canonicalArtworkByTitle.set(tNorm, item.artwork);
+          }
+        }
+        if (liveTitleNorm && !channels[m.key].artwork && canonicalArtworkByTitle.has(liveTitleNorm)) {
+          channels[m.key].artwork = canonicalArtworkByTitle.get(liveTitleNorm);
+        }
+        channels[m.key].schedule = rawSchedule.map((item) => {
+          const tNorm = (item.title || "").toLowerCase().trim();
+          return {
+            ...item,
+            artwork: canonicalArtworkByTitle.get(tNorm) || item.artwork || null
+          };
+        });
       }
     }
   } catch (err) {
