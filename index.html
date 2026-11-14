@@ -1168,6 +1168,24 @@
 
     clockTimer = setInterval(updateDvrClockUI, 1000);
     metadataTimer = setInterval(fetchLiveProgramMetadata, 45000);
+
+    // Intenta reproduir automàticament en entrar a la webapp
+    let autoplayPending = true;
+    startPlayback(false).then(() => {
+      if (isPlaying) autoplayPending = false;
+    });
+
+    // Si iOS bloqueja l'autoplay sense interacció prèvia, arrenca al primer toc a qualsevol punt de la pantalla
+    const unlockAutoplayOnFirstTouch = () => {
+      if (autoplayPending && !isPlaying) {
+        autoplayPending = false;
+        startPlayback(false);
+      }
+      document.removeEventListener("touchstart", unlockAutoplayOnFirstTouch);
+      document.removeEventListener("click", unlockAutoplayOnFirstTouch);
+    };
+    document.addEventListener("touchstart", unlockAutoplayOnFirstTouch, { passive: true });
+    document.addEventListener("click", unlockAutoplayOnFirstTouch, { passive: true });
   </script>
 </body>
 </html>
