@@ -97,11 +97,6 @@
     body {
       margin: 0;
       padding: 0;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
       width: 100%;
       height: var(--app-height, 100dvh);
       min-height: 100vh;
@@ -117,51 +112,202 @@
     }
 
     .app-shell {
-      width: var(--portrait-w, 100%);
+      width: 100%;
       max-width: 440px;
-      height: var(--portrait-h, var(--app-height, 100dvh));
-      min-height: var(--portrait-h, 100%);
-      max-height: var(--portrait-h, 100%);
+      height: var(--app-height, 100dvh);
+      min-height: 100%;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: var(--locked-pad-top, calc(env(safe-area-inset-top, 16px) + 6px)) 20px var(--locked-pad-bottom, calc(env(safe-area-inset-bottom, 16px) + 10px)) 20px;
+      padding: calc(env(safe-area-inset-top, 20px) + 12px) 20px calc(env(safe-area-inset-bottom, 16px) + 12px) 20px;
+      box-sizing: border-box;
     }
 
-    /* Bloqueja la rotació horitzontal en mòbils mantenint exactament les dimensions i posicions verticals */
-    html[data-landscape-lock="left"],
-    html[data-landscape-lock="right"] {
-      width: 100% !important;
-      height: 100% !important;
-      overflow: hidden !important;
+    /* Adaptació fluida a pantalles horitzontals (mòbils i tauletes en apaïsat) */
+    @media (orientation: landscape) {
+      body {
+        background-image: radial-gradient(circle at 35% 50%, var(--ambient-color) 0%, #0a0a0a 72%);
+      }
+
+      .app-shell {
+        max-width: 960px;
+        width: 100%;
+        height: var(--app-height, 100dvh);
+        min-height: 100%;
+        display: grid;
+        grid-template-columns: minmax(180px, 0.95fr) minmax(260px, 1.05fr);
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+          "stage topbar"
+          "stage bottomcontrols";
+        column-gap: 24px;
+        row-gap: 4px;
+        align-items: center;
+        padding-top: max(calc(env(safe-area-inset-top, 0px) + 6px), 10px);
+        padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 8px), 12px);
+        padding-left: max(calc(env(safe-area-inset-left, 0px) + 16px), 24px);
+        padding-right: max(calc(env(safe-area-inset-right, 0px) + 16px), 24px);
+      }
+
+      .center-stage {
+        grid-area: stage;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        margin: 0 !important;
+        padding: 0 8px 0 0 !important;
+        height: 100%;
+      }
+
+      .top-bar {
+        grid-area: topbar;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+      }
+
+      .bottom-controls {
+        grid-area: bottomcontrols;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 6px;
+      }
+
+      .stations-grid {
+        margin-top: 0 !important;
+        gap: 6px !important;
+      }
+
+      .station-btn {
+        padding: 4px !important;
+      }
+
+      .territorial-row {
+        margin-top: 4px !important;
+        margin-bottom: 2px !important;
+        font-size: 12px !important;
+      }
+
+      .territorial-select {
+        font-size: 12px !important;
+        padding: 1px 18px 1px 6px !important;
+      }
+
+      .artwork-wrapper {
+        width: min(175px, 42vh) !important;
+        height: min(175px, 42vh) !important;
+        margin-bottom: 8px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+      }
+
+      .artwork-wrapper.is-shrunk {
+        transform: scale(0.85) !important;
+      }
+
+      .program-title {
+        font-size: 16px !important;
+        margin-bottom: 2px !important;
+        max-width: 95% !important;
+        line-height: 1.2 !important;
+      }
+
+      .program-host {
+        font-size: 13px !important;
+        margin-bottom: 0 !important;
+        line-height: 1.2 !important;
+      }
+
+      .next-pill {
+        font-size: 11px !important;
+      }
+
+      .next-pill.is-visible {
+        margin-top: 6px !important;
+        max-height: 24px !important;
+        padding: 2px 10px !important;
+      }
+
+      .timeshift-box {
+        margin-bottom: 3px !important;
+      }
+
+      .time-labels {
+        margin-bottom: 3px !important;
+      }
+
+      .clock-display {
+        font-size: 13px !important;
+      }
+
+      .clock-icon {
+        width: 14px !important;
+        height: 14px !important;
+      }
+
+      .hour-jump-btn {
+        padding: 2px 6px !important;
+        font-size: 11px !important;
+        height: 24px !important;
+      }
+
+      .live-jump-btn svg {
+        width: 52px !important;
+        height: 24px !important;
+      }
+
+      .controls-row {
+        margin: 2px 0 4px 0 !important;
+        gap: 24px !important;
+      }
+
+      .play-btn {
+        width: 52px !important;
+        height: 52px !important;
+      }
+
+      .play-btn svg {
+        width: 26px !important;
+        height: 26px !important;
+      }
+
+      .spinner {
+        width: 44px !important;
+        height: 44px !important;
+      }
+
+      .skip-btn svg {
+        width: 32px !important;
+        height: 28px !important;
+      }
+
+      .volume-airplay-row {
+        margin-top: 2px !important;
+      }
     }
 
-    html[data-landscape-lock="left"] body {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: auto !important;
-      bottom: auto !important;
-      width: var(--portrait-w) !important;
-      height: var(--portrait-h) !important;
-      min-height: var(--portrait-h) !important;
-      max-height: var(--portrait-h) !important;
-      transform-origin: 0 0 !important;
-      transform: translateY(var(--portrait-w)) rotate(-90deg) !important;
-    }
-
-    html[data-landscape-lock="right"] body {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: auto !important;
-      bottom: auto !important;
-      width: var(--portrait-w) !important;
-      height: var(--portrait-h) !important;
-      min-height: var(--portrait-h) !important;
-      max-height: var(--portrait-h) !important;
-      transform-origin: 0 0 !important;
-      transform: translateX(var(--portrait-h)) rotate(90deg) !important;
+    @media (orientation: landscape) and (max-height: 380px) {
+      .artwork-wrapper {
+        width: min(135px, 38vh) !important;
+        height: min(135px, 38vh) !important;
+        margin-bottom: 4px !important;
+      }
+      .program-title {
+        font-size: 14px !important;
+      }
+      .program-host {
+        font-size: 12px !important;
+      }
+      .play-btn {
+        width: 46px !important;
+        height: 46px !important;
+      }
+      .play-btn svg {
+        width: 22px !important;
+        height: 22px !important;
+      }
     }
 
     .live-badge {
@@ -196,7 +342,7 @@
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 8px;
-      margin-top: 16px;
+      margin-top: 8px;
       touch-action: none;
     }
 
@@ -330,8 +476,8 @@
     .artwork-wrapper {
       position: relative;
       z-index: 1;
-      width: min(252px, calc(var(--portrait-w, 100vw) * 0.62));
-      height: min(252px, calc(var(--portrait-w, 100vw) * 0.62));
+      width: min(252px, 62vw);
+      height: min(252px, 62vw);
       border-radius: 10px;
       background: #121212;
       box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
@@ -935,7 +1081,7 @@
   </div>
 
   <div class="app-shell">
-    <div>
+    <div class="top-bar">
       <!-- Selector dels 5 canals oficials -->
       <div class="stations-grid" id="stationsGrid">
         <div class="station-slider-pill" id="stationSliderPill" aria-hidden="true"></div>
@@ -979,7 +1125,7 @@
     </div>
 
     <!-- Controls de reproducció i Timeshift -->
-    <div>
+    <div class="bottom-controls">
       <div class="timeshift-box" id="timeshiftBox">
         <div class="time-labels">
           <div class="clock-display" id="clockDisplay">
@@ -1167,71 +1313,16 @@
     const stationsGrid = document.getElementById("stationsGrid");
     const stationSliderPill = document.getElementById("stationSliderPill");
 
-    let lockedPortraitW = null;
-    let lockedPortraitH = null;
-    let lockedPadTop = null;
-    let lockedPadBottom = null;
-
-    // Garanteix que la webapp ocupi sempre el 100% de l'alçada física a iOS i bloqueja la rotació en mòbils sense cap salt ni recol·locació
+    // Assegura el 100% de l'alçada visual en navegadors mòbils tant en vertical com en horitzontal
     function syncViewportHeight() {
-      if (screen.orientation && typeof screen.orientation.lock === "function") {
-        screen.orientation.lock("portrait").catch(() => {});
-      }
       const isStandalone = window.navigator.standalone === true ||
         (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
       const vvHeight = window.visualViewport ? Math.round(window.visualViewport.height) : 0;
-      const innerW = Math.round(window.innerWidth || 0);
       const innerH = Math.round(window.innerHeight || 0);
       const clientH = Math.round(document.documentElement.clientHeight || 0);
-      const screenW = (window.screen && window.screen.width) ? Math.round(window.screen.width) : 0;
-      const screenH = (window.screen && window.screen.height) ? Math.round(window.screen.height) : 0;
-      const isMobileDevice = Math.min(innerW, innerH) <= 560 || Math.min(screenW || 9999, screenH || 9999) <= 560;
-      const isMobileLandscape = isMobileDevice && innerW > innerH;
-
-      if (isMobileLandscape) {
-        if (!lockedPortraitW || !lockedPortraitH) {
-          const pW = Math.min(innerW, innerH);
-          const pH = Math.max(innerW, innerH, screenW, screenH);
-          lockedPortraitW = pW;
-          lockedPortraitH = pH;
-          document.documentElement.style.setProperty("--portrait-w", `${lockedPortraitW}px`);
-          document.documentElement.style.setProperty("--portrait-h", `${lockedPortraitH}px`);
-          document.documentElement.style.setProperty("--app-height", `${lockedPortraitH}px`);
-        }
-        const rawAngle = (screen.orientation && typeof screen.orientation.angle === "number")
-          ? screen.orientation.angle
-          : (typeof window.orientation === "number" ? window.orientation : 90);
-        const dir = (rawAngle === -90 || rawAngle === 270) ? "right" : "left";
-        document.documentElement.setAttribute("data-landscape-lock", dir);
-        requestAnimationFrame(() => updateStationPillToCurrent());
-        return;
-      }
-
-      document.documentElement.removeAttribute("data-landscape-lock");
-      const maxScreenDim = Math.max(screenW, screenH);
-      const baseH = Math.max(innerH, clientH, vvHeight);
-      const targetH = (isStandalone && maxScreenDim >= baseH && (maxScreenDim - baseH) <= 115)
-        ? maxScreenDim
-        : baseH;
-
-      if (innerW > 0 && targetH > 0) {
-        lockedPortraitW = innerW;
-        lockedPortraitH = targetH;
-        document.documentElement.style.setProperty("--portrait-w", `${lockedPortraitW}px`);
-        document.documentElement.style.setProperty("--portrait-h", `${lockedPortraitH}px`);
-        document.documentElement.style.setProperty("--app-height", `${lockedPortraitH}px`);
-      }
-
-      if (appShell && (!lockedPadTop || !lockedPadBottom)) {
-        const cs = window.getComputedStyle(appShell);
-        const pt = parseFloat(cs.paddingTop);
-        const pb = parseFloat(cs.paddingBottom);
-        if (pt > 0 && pb > 0) {
-          lockedPadTop = `${pt}px`;
-          lockedPadBottom = `${pb}px`;
-          document.documentElement.style.setProperty("--locked-pad-top", lockedPadTop);
-          document.documentElement.style.setProperty("--locked-pad-bottom", lockedPadBottom);
-        }
+      const targetH = Math.max(innerH, clientH, vvHeight);
+      if (targetH > 0) {
+        document.documentElement.style.setProperty("--app-height", `${targetH}px`);
       }
       requestAnimationFrame(() => updateStationPillToCurrent());
     }
@@ -2316,16 +2407,9 @@
     let stationDragState = null;
     let lastCommittedStation = currentStation;
 
-    function getPointerGridRelX(clientX, clientY) {
+    function getPointerGridRelX(clientX) {
       if (!stationsGrid) return 0;
       const rect = stationsGrid.getBoundingClientRect();
-      const lockDir = document.documentElement.getAttribute("data-landscape-lock");
-      if (lockDir === "left") {
-        return rect.bottom - clientY;
-      }
-      if (lockDir === "right") {
-        return clientY - rect.top;
-      }
       return clientX - rect.left;
     }
 
@@ -2338,7 +2422,7 @@
       const btnH = btns[0].offsetHeight;
       const minX = btns[0].offsetLeft;
       const maxX = btns[btns.length - 1].offsetLeft;
-      const relX = getPointerGridRelX(clientX, clientY);
+      const relX = getPointerGridRelX(clientX);
       const clampedX = Math.max(minX, Math.min(maxX, relX - btnW / 2));
 
       let segIdx = 0;
