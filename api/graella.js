@@ -69,11 +69,33 @@ export default async function handler(req, res) {
       .trim();
   }
 
-  // Busca dins d'un objecte JSON qualsevol imatge que tingui relació 1:1 (amplada == alcada o camp quadrat)
+  // Busca dins d'un objecte JSON la portada quadrada oficial del programa (prioritzant IMG_PODCAST i 1400x1400, i descartant IMG_LOGO / IMATGE_169 / IMG_POSTER)
   function findSquareImageInObject(obj, depth = 0) {
     if (!obj || typeof obj !== "object" || depth > 6) return null;
 
     if (Array.isArray(obj)) {
+      if (obj.length > 0 && obj.some((it) => it && typeof it === "object" && (it.rel_name || it.mida))) {
+        const validItems = obj
+          .map((it) => ({
+            url: normalizeImg(it?.url || it?.src || it?.text || it?.imatge),
+            mida: String(it?.mida || it?.relacio || it?.ratio || "").toUpperCase(),
+            rel: String(it?.rel_name || "").toUpperCase()
+          }))
+          .filter((it) => it.url && !/LOGO|169|16_9|16X9|POSTER|CARTELL|VERTICAL/.test(it.rel));
+
+        const podcastCover = validItems.find((it) => it.rel === "IMG_PODCAST");
+        if (podcastCover) return podcastCover.url;
+
+        const sq1400 = validItems.find((it) => it.mida === "1400X1400");
+        if (sq1400) return sq1400.url;
+
+        const sq300 = validItems.find((it) => it.mida === "300X300" || it.mida === "200X200" || it.mida === "1:1" || it.mida === "1X1");
+        if (sq300) return sq300.url;
+
+        const sq144 = validItems.find((it) => it.mida === "144X144");
+        if (sq144) return sq144.url;
+      }
+
       for (const item of obj) {
         const found = findSquareImageInObject(item, depth + 1);
         if (found) return found;
@@ -102,6 +124,11 @@ export default async function handler(req, res) {
     }
 
     // Comprovació per dimensions (amplada === alcada) o proporció ("1:1" / "1x1")
+    const relName = String(obj.rel_name || "").toUpperCase();
+    if (/LOGO|169|16_9|16X9|POSTER|CARTELL|VERTICAL/.test(relName)) {
+      return null;
+    }
+
     const w = Number(obj.amplada || obj.width || obj.w || 0);
     const h = Number(obj.alcada || obj.height || obj.h || 0);
     const ratio = String(obj.relacio || obj.ratio || obj.aspect || obj.mida || "").toLowerCase();
@@ -110,14 +137,23 @@ export default async function handler(req, res) {
     if (typeof rawUrl === "string") {
       const normalized = normalizeImg(rawUrl);
       if (normalized) {
-        if ((w > 0 && h > 0 && Math.abs(w - h) <= 4) || ratio === "1:1" || ratio === "1x1" || ratio.includes("quadra")) {
+        if (
+          relName === "IMG_PODCAST" ||
+          (w > 0 && h > 0 && Math.abs(w - h) <= 4) ||
+          ratio === "1:1" ||
+          ratio === "1x1" ||
+          ratio === "1400x1400" ||
+          ratio === "300x300" ||
+          ratio === "200x200" ||
+          ratio.includes("quadra")
+        ) {
           return normalized;
         }
       }
     }
 
     for (const k of Object.keys(obj)) {
-      if (/16x9|16_9|vertical|poster|cartell/i.test(k)) continue;
+      if (/16x9|16_9|vertical|poster|cartell|logo/i.test(k)) continue;
       const found = findSquareImageInObject(obj[k], depth + 1);
       if (found) return found;
     }
