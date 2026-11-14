@@ -404,17 +404,6 @@
       cursor: pointer;
     }
 
-    .station-btn::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      z-index: 1;
-      pointer-events: none;
-    }
-
     .station-btn:active img {
       transform: scale(0.94);
     }
@@ -426,8 +415,17 @@
       height: 82%;
       object-fit: contain;
       filter: brightness(0) invert(1);
+      opacity: 0.68;
       pointer-events: none;
       transition: filter 0.22s ease, opacity 0.22s ease, transform 0.2s ease;
+    }
+
+    .station-btn:hover:not(.active) img {
+      opacity: 0.95;
+    }
+
+    .station-btn.active img {
+      opacity: 1;
     }
 
     /* Contrast dels logotips quan la pastilla de color és a sota */
@@ -1181,7 +1179,7 @@
         logo: "/logos/exclusiudigital.svg",
         accent: "#F5A800",
         ambient: "rgba(245, 168, 0, 0.14)",
-        url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-digital-hls/master.m3u8",
+        url: "https://directes-radio-int.3catdirectes.cat/live-content/radio-oca-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyaradioHD.mp3"
       },
       catinfo: {

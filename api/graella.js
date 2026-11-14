@@ -742,9 +742,10 @@ export default async function handler(req, res) {
   try {
     let directesNextData = null;
 
-    const [directesRes, icatWsaRes] = await Promise.allSettled([
+    const [directesRes, icatWsaRes, ocr1WsaRes] = await Promise.allSettled([
       fetch("https://www.3cat.cat/3cat/directes/catalunya-radio/", { headers }),
-      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/ic/geo/cat", { headers })
+      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/ic/geo/cat", { headers }),
+      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/ocr1/geo/cat", { headers })
     ]);
 
     if (directesRes.status === "fulfilled" && directesRes.value.ok) {
@@ -828,6 +829,36 @@ export default async function handler(req, res) {
         }
       } catch (err) {
         debugLog.push({ icatWsaError: err.message });
+      }
+    }
+
+    if (ocr1WsaRes.status === "fulfilled" && ocr1WsaRes.value.ok) {
+      try {
+        const ocrJson = await ocr1WsaRes.value.json();
+        const araFem = ocrJson?.canal?.ara_fem;
+        if (araFem) {
+          if (!channels.digital) {
+            channels.digital = {
+              id: "digital",
+              channel: "digital",
+              title: "CatRàdio Exclusiu Digital",
+              host: "",
+              artwork: null
+            };
+          }
+          if (araFem.titol_programa) {
+            channels.digital.title = decodeHtmlEntities(araFem.titol_programa.trim());
+          }
+          if (araFem.presentador) {
+            channels.digital.host = decodeHtmlEntities(araFem.presentador.trim());
+          }
+          const progImg = findSquareImageInObject(araFem);
+          if (progImg) {
+            channels.digital.artwork = progImg;
+          }
+        }
+      } catch (err) {
+        debugLog.push({ ocr1WsaError: err.message });
       }
     }
 
