@@ -469,9 +469,73 @@
       cursor: pointer;
       padding: 8px;
     }
+
+    /* Pantalla d'inici animada (Splash Screen) */
+    .splash-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background-color: #FFD100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      pointer-events: all;
+      transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s;
+    }
+
+    .splash-screen.splash-hide {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .splash-bolt {
+      width: 155px;
+      height: auto;
+      overflow: visible;
+    }
+
+    .splash-bolt .bolt-left {
+      fill: #FFFFFF;
+      animation: slideDiagonalFromBottomLeft 0.52s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .splash-bolt .bolt-right {
+      fill: #FFFFFF;
+      animation: slideDiagonalFromTopRight 0.52s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes slideDiagonalFromBottomLeft {
+      0% {
+        transform: translate(-110vw, 63.36vw);
+      }
+      100% {
+        transform: translate(0, 0);
+      }
+    }
+
+    @keyframes slideDiagonalFromTopRight {
+      0% {
+        transform: translate(110vw, -63.36vw);
+      }
+      100% {
+        transform: translate(0, 0);
+      }
+    }
   </style>
 </head>
 <body>
+
+  <!-- Pantalla d'inici amb el llamp blanc animat sobre fons groc -->
+  <div class="splash-screen" id="splashScreen" aria-hidden="true">
+    <svg class="splash-bolt" viewBox="11.5 0 36.2 22.4" xmlns="http://www.w3.org/2000/svg">
+      <!-- Meitat esquerra del llamp (entra des de baix a l'esquerra seguint la diagonal) -->
+      <polygon class="bolt-left" points="11.5,13.7 11.5,22.4 35.1,8.8 35.1,0" />
+      <!-- Meitat dreta del llamp (entra des de dalt a la dreta seguint la diagonal) -->
+      <polygon class="bolt-right" points="26.8,13.7 26.8,22.4 47.7,10.4 47.7,1.4" />
+    </svg>
+  </div>
 
   <div class="app-shell">
     <div>
@@ -1165,6 +1229,15 @@
     updateTimeshiftVisibility();
     fetchLiveProgramMetadata();
     updateDvrClockUI();
+
+    // Amaga la pantalla d'inici (splash screen) passat ~1 segon
+    const splashScreen = document.getElementById("splashScreen");
+    if (splashScreen) {
+      setTimeout(() => {
+        splashScreen.classList.add("splash-hide");
+        setTimeout(() => splashScreen.remove(), 300);
+      }, 900);
+    }
 
     clockTimer = setInterval(updateDvrClockUI, 1000);
     metadataTimer = setInterval(fetchLiveProgramMetadata, 45000);
