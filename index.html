@@ -178,19 +178,11 @@
 
       .stations-grid {
         margin-top: 0 !important;
-        gap: 5px !important;
-        padding: 4px !important;
-        border-radius: 10px !important;
+        gap: 6px !important;
       }
 
       .station-btn {
         padding: 4px !important;
-        border-radius: 7px !important;
-      }
-
-      .station-btn::before,
-      .station-slider-pill {
-        border-radius: 7px !important;
       }
 
       .territorial-row {
@@ -364,24 +356,14 @@
       50% { opacity: 0.35; }
     }
 
-    /* Graella de 5 emissores oficials amb estètica Liquid Glass (iOS 26) */
+    /* Graella de 5 emissores oficials amb pastilla de color lliscant */
     .stations-grid {
       position: relative;
       z-index: 1;
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 6px;
+      gap: 8px;
       margin-top: 8px;
-      padding: 5px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 12px;
-      backdrop-filter: blur(25px) saturate(190%);
-      -webkit-backdrop-filter: blur(25px) saturate(190%);
-      box-shadow:
-        inset 0 1px 1px 0 rgba(255, 255, 255, 0.16),
-        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.32),
-        0 8px 30px rgba(0, 0, 0, 0.35);
       touch-action: none;
     }
 
@@ -389,68 +371,23 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: var(--pill-w, calc((100% - 34px) / 5));
+      width: var(--pill-w, calc((100% - 32px) / 5));
       height: var(--pill-h, 100%);
-      border-radius: 8px;
+      background-color: var(--pill-color, #FFD100);
+      border: 1px solid var(--pill-color, #FFD100);
+      border-radius: 4px;
       z-index: 2;
       pointer-events: none;
-      transform: translate3d(var(--pill-x, 5px), var(--pill-y, 5px), 0);
-      will-change: transform, background-color, box-shadow;
-      background-color: var(--pill-color, #FFD100);
-      background-image:
-        linear-gradient(
-          175deg,
-          rgba(255, 255, 255, 0.52) 0%,
-          rgba(255, 255, 255, 0.18) 38%,
-          rgba(255, 255, 255, 0.0) 52%,
-          rgba(0, 0, 0, 0.1) 82%,
-          rgba(255, 255, 255, 0.14) 100%
-        );
-      border: 1px solid rgba(255, 255, 255, 0.45);
-      backdrop-filter: blur(12px) saturate(200%);
-      -webkit-backdrop-filter: blur(12px) saturate(200%);
-      box-shadow:
-        inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.8),
-        inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.35),
-        0 6px 20px var(--pill-glow, rgba(255, 209, 0, 0.4)),
-        0 2px 6px rgba(0, 0, 0, 0.35);
+      transform: translate3d(var(--pill-x, 0px), 0, 0);
+      will-change: transform, background-color, border-color;
       transition:
-        transform 0.34s cubic-bezier(0.28, 1.35, 0.45, 1),
+        transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
         background-color 0.24s ease,
-        box-shadow 0.24s ease;
-      overflow: hidden;
-    }
-
-    /* Menisc corbat especular superior (vidre líquid) */
-    .station-slider-pill::before {
-      content: "";
-      position: absolute;
-      top: 1px;
-      left: 3px;
-      right: 3px;
-      height: 44%;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.04) 100%);
-      border-radius: 6px 6px 45% 45% / 6px 6px 16% 16%;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    /* Centelleig refractiu inferior */
-    .station-slider-pill::after {
-      content: "";
-      position: absolute;
-      bottom: 2px;
-      left: 18%;
-      right: 18%;
-      height: 2px;
-      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.65) 0%, transparent 80%);
-      border-radius: 50%;
-      pointer-events: none;
+        border-color 0.24s ease;
     }
 
     .station-slider-pill.is-dragging {
       transition: none;
-      transform: translate3d(var(--pill-x, 5px), var(--pill-y, 5px), 0) scaleX(1.03) scaleY(0.97);
     }
 
     .station-btn {
@@ -458,43 +395,35 @@
       aspect-ratio: 1 / 1;
       background: transparent;
       border: none;
-      border-radius: 8px;
+      border-radius: 4px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 5px;
+      padding: 6px;
       cursor: pointer;
-      transition: transform 0.18s ease;
     }
 
     .station-btn::before {
       content: "";
       position: absolute;
       inset: 0;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
       z-index: 1;
       pointer-events: none;
-      transition: background 0.2s ease, border-color 0.2s ease;
-    }
-
-    .station-btn:hover:not(.active)::before {
-      background: rgba(255, 255, 255, 0.06);
-      border-color: rgba(255, 255, 255, 0.22);
     }
 
     .station-btn:active img {
-      transform: scale(0.92);
+      transform: scale(0.94);
     }
 
     .station-btn img {
       position: relative;
       z-index: 3;
-      width: 80%;
-      height: 80%;
+      width: 82%;
+      height: 82%;
       object-fit: contain;
       filter: brightness(0) invert(1);
       opacity: 0.68;
@@ -510,7 +439,7 @@
       opacity: 1;
     }
 
-    /* Contrast dels logotips quan la pastilla liquid glass és a sota */
+    /* Contrast dels logotips quan la pastilla de color és a sota */
     .station-btn[data-id="catradio"].active img {
       filter: brightness(0);
     }
@@ -520,15 +449,15 @@
     }
 
     .station-btn[data-id="catinfo"].active img {
-      filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+      filter: brightness(0) invert(1);
     }
 
     .station-btn[data-id="icat"].active img {
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+      filter: none;
     }
 
     .station-btn[data-id="catmusica"].active img {
-      filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+      filter: brightness(0) invert(1);
     }
 
     /* Connexió territorial */
@@ -1377,36 +1306,6 @@
     let currentArtworkTarget = "";
     let artworkLoadToken = 0;
 
-    // Utilitats de color i brillantor per a l'efecte Liquid Glass
-    function hexToRgb(hex) {
-      const clean = String(hex || "#FFD100").replace("#", "");
-      const num = parseInt(clean, 16);
-      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-    }
-
-    function colorWithAlpha(colorStr, alpha) {
-      if (!colorStr) return `rgba(255, 209, 0, ${alpha})`;
-      const str = String(colorStr).trim();
-      if (str.startsWith("rgb(")) {
-        return str.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
-      }
-      if (str.startsWith("rgba(")) {
-        return str.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
-      }
-      const [r, g, b] = hexToRgb(str);
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
-
-    function lerpHexColor(hexA, hexB, t) {
-      const [r1, g1, b1] = hexToRgb(hexA);
-      const [r2, g2, b2] = hexToRgb(hexB);
-      const f = Math.min(1, Math.max(0, t));
-      const r = Math.round(r1 + (r2 - r1) * f);
-      const g = Math.round(g1 + (g2 - g1) * f);
-      const b = Math.round(b1 + (b2 - b1) * f);
-      return `rgb(${r}, ${g}, ${b})`;
-    }
-
     function updateStationPillToCurrent() {
       if (!stationsGrid || !stationSliderPill) return;
       const activeBtn = stationsGrid.querySelector(`.station-btn[data-id="${currentStation}"]`) ||
@@ -1416,10 +1315,7 @@
       stationSliderPill.style.setProperty("--pill-w", `${activeBtn.offsetWidth}px`);
       stationSliderPill.style.setProperty("--pill-h", `${activeBtn.offsetHeight}px`);
       stationSliderPill.style.setProperty("--pill-x", `${activeBtn.offsetLeft}px`);
-      stationSliderPill.style.setProperty("--pill-y", `${activeBtn.offsetTop}px`);
-      const accent = STREAMS[currentStation].accent;
-      stationSliderPill.style.setProperty("--pill-color", accent);
-      stationSliderPill.style.setProperty("--pill-glow", colorWithAlpha(accent, 0.45));
+      stationSliderPill.style.setProperty("--pill-color", STREAMS[currentStation].accent);
     }
 
     syncViewportHeight();
@@ -2604,6 +2500,22 @@
     scrubber.addEventListener("touchcancel", commitScrub);
 
     // Selector d'emissores amb lliscament horitzontal tàctil i interpolació del color
+    function hexToRgb(hex) {
+      const clean = String(hex || "#FFD100").replace("#", "");
+      const num = parseInt(clean, 16);
+      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+    }
+
+    function lerpHexColor(hexA, hexB, t) {
+      const [r1, g1, b1] = hexToRgb(hexA);
+      const [r2, g2, b2] = hexToRgb(hexB);
+      const f = Math.min(1, Math.max(0, t));
+      const r = Math.round(r1 + (r2 - r1) * f);
+      const g = Math.round(g1 + (g2 - g1) * f);
+      const b = Math.round(b1 + (b2 - b1) * f);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
     function applyStationThemeAndMetadata(newId, shouldStartAudio) {
       const changedStation = newId !== currentStation;
       currentStation = newId;
@@ -2696,9 +2608,7 @@
       stationSliderPill.style.setProperty("--pill-w", `${btnW}px`);
       stationSliderPill.style.setProperty("--pill-h", `${btnH}px`);
       stationSliderPill.style.setProperty("--pill-x", `${clampedX.toFixed(1)}px`);
-      stationSliderPill.style.setProperty("--pill-y", `${btns[0].offsetTop}px`);
       stationSliderPill.style.setProperty("--pill-color", blendedColor);
-      stationSliderPill.style.setProperty("--pill-glow", colorWithAlpha(blendedColor, 0.45));
 
       if (nearestId !== currentStation) {
         applyStationThemeAndMetadata(nearestId, false);
