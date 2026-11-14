@@ -278,11 +278,12 @@
 
     .artwork-wrapper {
       position: relative;
+      z-index: 1;
       width: min(252px, 62vw);
       height: min(252px, 62vw);
       border-radius: 10px;
       background: #121212;
-      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.75);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
       margin-bottom: 16px;
       overflow: hidden;
       display: flex;
@@ -297,7 +298,7 @@
 
     .artwork-wrapper.is-shrunk {
       transform: scale(0.84);
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.52);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
     }
 
     .artwork {
@@ -316,6 +317,8 @@
     }
 
     .program-title {
+      position: relative;
+      z-index: 2;
       font-family: var(--font-bold);
       font-size: 20px;
       font-weight: 700;
@@ -325,6 +328,8 @@
     }
 
     .program-host {
+      position: relative;
+      z-index: 2;
       font-size: 14px;
       color: #d1d5db;
       margin: 0;
@@ -332,6 +337,8 @@
     }
 
     .next-pill {
+      position: relative;
+      z-index: 2;
       margin-top: 12px;
       font-size: 12px;
       color: #9ca3af;
@@ -1001,8 +1008,8 @@
     </div>
   </div>
 
-  <!-- Reproductor natiu HTML5 (màxima estabilitat en segon pla a iOS) -->
-  <audio id="audioPlayer" preload="auto" autoplay playsinline x-webkit-airplay="allow"></audio>
+  <!-- Reproductor natiu HTML5 (amb crossorigin per permetre control de volum via WebAudio GainNode a iOS) -->
+  <audio id="audioPlayer" preload="auto" autoplay playsinline crossorigin="anonymous" x-webkit-airplay="allow"></audio>
 
   <script>
     const STREAMS = {
@@ -1623,39 +1630,14 @@
         return name === "NotAllowedError" || name === "AbortError" || /notallowed|interaction|gesture|permission/i.test(msg);
       };
 
-      // Prioritzem el motor natiu HLS a Safari/iOS per màxima estabilitat en segon pla
+      if ("audioSession" in navigator && navigator.audioSession) {
+        try { navigator.audioSession.type = "playback"; } catch (e) {}
+      }
+
       const isNativeHls = audio.canPlayType("application/vnd.apple.mpegurl") !== "";
 
-      if (isNativeHls) {
-        audio.src = streamUrl;
-        audio.load();
-        try {
-          await audio.play();
-          autoplayPending = false;
-          setLoading(false);
-          setPlayingState(true);
-        } catch (err) {
-          if (isAutoplayBlockedError(err)) {
-            // Mantenim el flux HLS carregat a punt per sonar a l'instant (sense degradar a MP3!)
-            autoplayPending = true;
-            setLoading(false);
-            setPlayingState(false);
-            return;
-          }
-          // Fallback a MP3 oficial de la CCMA només si realment falla la càrrega del manifest HLS
-          audio.src = STREAMS[currentStation].fallbackMp3;
-          try {
-            await audio.play();
-            autoplayPending = false;
-            setLoading(false);
-            setPlayingState(true);
-          } catch (e2) {
-            autoplayPending = true;
-            setLoading(false);
-            setPlayingState(false);
-          }
-        }
-      } else if (window.Hls && Hls.isSupported()) {
+      // Prioritzem Hls.js (ManagedMediaSource a iOS 17.1+ / MSE) perquè permet controlar el volum progressiu amb WebAudio GainNode a iOS
+      if (window.Hls && Hls.isSupported()) {
         hlsInstance = new Hls({
           backBufferLength: 7200,
           maxBufferLength: 600,
@@ -1680,18 +1662,52 @@
           if (data.fatal) {
             hlsInstance.destroy();
             hlsInstance = null;
-            audio.src = STREAMS[currentStation].fallbackMp3;
+            // Si falla ManagedMediaSource (ex. en activar AirPlay o xarxa), passem al motor HLS natiu o MP3
+            audio.src = isNativeHls ? streamUrl : STREAMS[currentStation].fallbackMp3;
             audio.play().then(() => {
               autoplayPending = false;
               setLoading(false);
               setPlayingState(true);
-            }).catch(() => {
+            }).catch((err2) => {
+              if (isAutoplayBlockedError(err2)) {
+                autoplayPending = true;
+                setLoading(false);
+                setPlayingState(false);
+                return;
+              }
               setLoading(false);
               setPlayingState(false);
               statusMsg.textContent = "Error de connexió amb el directe";
             });
           }
         });
+      } else if (isNativeHls) {
+        audio.src = streamUrl;
+        audio.load();
+        try {
+          await audio.play();
+          autoplayPending = false;
+          setLoading(false);
+          setPlayingState(true);
+        } catch (err) {
+          if (isAutoplayBlockedError(err)) {
+            autoplayPending = true;
+            setLoading(false);
+            setPlayingState(false);
+            return;
+          }
+          audio.src = STREAMS[currentStation].fallbackMp3;
+          try {
+            await audio.play();
+            autoplayPending = false;
+            setLoading(false);
+            setPlayingState(true);
+          } catch (e2) {
+            autoplayPending = true;
+            setLoading(false);
+            setPlayingState(false);
+          }
+        }
       } else {
         audio.src = STREAMS[currentStation].fallbackMp3;
         audio.play().then(() => {
@@ -2011,8 +2027,51 @@
     scrubber.addEventListener("pointercancel", commitScrub);
     scrubber.addEventListener("touchcancel", commitScrub);
 
-    // Control de Volum i Silenci (Mute)
+    // Control de Volum i Silenci (amb WebAudio GainNode perquè reguli de 0% a 100% també a iOS)
     let savedVolumeBeforeMute = 100;
+    let currentVolumePct = 100;
+    let webAudioCtx = null;
+    let webAudioGain = null;
+    let webAudioSource = null;
+
+    function ensureWebAudioGain() {
+      if (webAudioGain && webAudioCtx) {
+        if (webAudioCtx.state === "suspended") {
+          webAudioCtx.resume().catch(() => {});
+        }
+        return webAudioGain;
+      }
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      try {
+        if ("audioSession" in navigator && navigator.audioSession) {
+          try { navigator.audioSession.type = "playback"; } catch (e) {}
+        }
+        webAudioCtx = new AudioCtx();
+        webAudioGain = webAudioCtx.createGain();
+        webAudioGain.gain.value = currentVolumePct / 100;
+        webAudioSource = webAudioCtx.createMediaElementSource(audio);
+        webAudioSource.connect(webAudioGain);
+        webAudioGain.connect(webAudioCtx.destination);
+        webAudioCtx.onstatechange = () => {
+          if (isPlaying && webAudioCtx && webAudioCtx.state === "suspended") {
+            webAudioCtx.resume().catch(() => {});
+          }
+        };
+        if (webAudioCtx.state === "suspended") {
+          webAudioCtx.resume().catch(() => {});
+        }
+        return webAudioGain;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    audio.addEventListener("play", () => {
+      if (webAudioCtx && webAudioCtx.state === "suspended") {
+        webAudioCtx.resume().catch(() => {});
+      }
+    });
 
     function updateVolumeUI(volPct) {
       const clamped = Math.min(100, Math.max(0, Math.round(volPct)));
@@ -2028,17 +2087,30 @@
 
     function applyVolumeFromPct(volPct) {
       const clamped = Math.min(100, Math.max(0, Math.round(volPct)));
+      currentVolumePct = clamped;
       if (clamped > 0) {
         savedVolumeBeforeMute = clamped;
       }
+      const normalized = clamped / 100;
       audio.muted = (clamped === 0);
       try {
-        audio.volume = clamped / 100;
+        audio.volume = normalized;
       } catch (e) {}
+
+      const gain = ensureWebAudioGain();
+      if (gain && webAudioCtx) {
+        try {
+          gain.gain.setTargetAtTime(normalized, webAudioCtx.currentTime, 0.012);
+        } catch (e) {
+          gain.gain.value = normalized;
+        }
+      }
       updateVolumeUI(clamped);
     }
 
     if (volumeSlider) {
+      volumeSlider.addEventListener("pointerdown", () => ensureWebAudioGain());
+      volumeSlider.addEventListener("touchstart", () => ensureWebAudioGain(), { passive: true });
       volumeSlider.addEventListener("input", () => {
         applyVolumeFromPct(parseFloat(volumeSlider.value) || 0);
       });
