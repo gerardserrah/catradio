@@ -70,7 +70,14 @@ export default async function handler(req, res) {
   }
 
   const NON_SQUARE_META_RE =
-    /LOGO|169|16_9|16X9|1920X1080|1280X720|POSTER|CARTELL|VERTICAL|288X422|240X350|467X684|467684|320X466|1014X570|670X378|670X420|326X184|312X180|400X80|768X92|1980X200|141X51|128X96|IPTV|BRAVIA|ARAFEM|4COL|8COL|12COL/i;
+    /169|16_9|16X9|1920X1080|1280X720|POSTER|CARTELL|VERTICAL|288X422|240X350|467X684|467684|320X466|1014X570|670X378|670X250|670X420|326X184|312X180|400X80|768X92|1980X200|141X51|128X96|176X100|133X75|IPTV|BRAVIA|4COL|8COL|12COL|CAP_PHABLET|CAP_DESKTOP/i;
+
+  function isLogoRelOrTitle(rel, titol) {
+    if (/LOGO/i.test(String(rel || ""))) return true;
+    const t = String(titol || "");
+    if (/^(?:img_)?logo\b/i.test(t) && !/podcast|1400|1500|300x300|314x314|200x200/i.test(t)) return true;
+    return false;
+  }
 
   function isDimensionNonSquare(midaStr) {
     const m = String(midaStr || "").match(/(\d{2,4})\s*[xX]\s*(\d{2,4})/);
@@ -78,6 +85,14 @@ export default async function handler(req, res) {
     const w = Number(m[1]);
     const h = Number(m[2]);
     return w > 0 && h > 0 && Math.abs(w - h) > 4;
+  }
+
+  function isDimensionSquare(midaStr) {
+    const m = String(midaStr || "").match(/^(\d{2,4})\s*[xX]\s*(\d{2,4})$/);
+    if (!m) return false;
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    return w > 0 && h > 0 && Math.abs(w - h) <= 4;
   }
 
   function collectNonSquareUrlsFromObject(obj, rejected = new Set(), depth = 0) {
@@ -91,7 +106,13 @@ export default async function handler(req, res) {
     if (typeof rawUrl === "string") {
       const u = normalizeImg(rawUrl);
       const meta = `${obj.rel_name || ""} ${obj.mida || ""} ${obj.titol || ""} ${obj.alt || ""}`;
-      if (u && (NON_SQUARE_META_RE.test(meta) || isDimensionNonSquare(obj.mida) || isDimensionNonSquare(obj.titol))) {
+      if (
+        u &&
+        (isLogoRelOrTitle(obj.rel_name, obj.titol) ||
+          NON_SQUARE_META_RE.test(meta) ||
+          isDimensionNonSquare(obj.mida) ||
+          isDimensionNonSquare(obj.titol))
+      ) {
         rejected.add(u);
       }
     }
@@ -118,28 +139,37 @@ export default async function handler(req, res) {
           .filter(
             (it) =>
               it.url &&
+              !isLogoRelOrTitle(it.rel, it.titol) &&
               !NON_SQUARE_META_RE.test(`${it.rel} ${it.mida} ${it.titol}`) &&
               !isDimensionNonSquare(it.mida) &&
               !isDimensionNonSquare(it.titol)
           );
 
-        const podcastWithLogo = validItems.find((it) => it.rel === "IMG_PODCAST" && !/nologo|senselogo/i.test(it.titol));
-        if (podcastWithLogo) return podcastWithLogo.url;
-
-        const sq1400WithLogo = validItems.find((it) => it.mida === "1400X1400" && !/nologo|senselogo/i.test(it.titol));
-        if (sq1400WithLogo) return sq1400WithLogo.url;
-
         const podcastCover = validItems.find((it) => it.rel === "IMG_PODCAST");
         if (podcastCover) return podcastCover.url;
 
-        const sq1400 = validItems.find((it) => it.mida === "1400X1400");
+        const sq1400 = validItems.find((it) => it.mida === "1400X1400" || it.mida === "1500X1500");
         if (sq1400) return sq1400.url;
 
-        const sq300 = validItems.find((it) => it.mida === "300X300" || it.mida === "200X200" || it.mida === "1:1" || it.mida === "1X1");
+        const sq300 = validItems.find(
+          (it) =>
+            it.mida === "400X400" ||
+            it.mida === "314X314" ||
+            it.mida === "300X300" ||
+            it.mida === "200X200" ||
+            it.mida === "1:1" ||
+            it.mida === "1X1" ||
+            isDimensionSquare(it.mida)
+        );
         if (sq300) return sq300.url;
 
         const sq144 = validItems.find((it) => it.mida === "144X144");
         if (sq144) return sq144.url;
+
+        const sqByTitle = validItems.find((it) =>
+          /podcast|1400x1400|1500x1500|400x400|314x314|300x300|itunes_avatar/i.test(it.titol)
+        );
+        if (sqByTitle) return sqByTitle.url;
       }
 
       for (const item of obj) {
@@ -174,6 +204,7 @@ export default async function handler(req, res) {
     const titolMeta = String(obj.titol || obj.alt || "");
     const midaMeta = String(obj.mida || obj.relacio || obj.ratio || "");
     if (
+      isLogoRelOrTitle(relName, titolMeta) ||
       NON_SQUARE_META_RE.test(`${relName} ${midaMeta} ${titolMeta}`) ||
       isDimensionNonSquare(midaMeta) ||
       isDimensionNonSquare(titolMeta)
@@ -192,11 +223,9 @@ export default async function handler(req, res) {
         if (
           relName === "IMG_PODCAST" ||
           (w > 0 && h > 0 && Math.abs(w - h) <= 4) ||
+          isDimensionSquare(ratio) ||
           ratio === "1:1" ||
           ratio === "1x1" ||
-          ratio === "1400x1400" ||
-          ratio === "300x300" ||
-          ratio === "200x200" ||
           ratio.includes("quadra")
         ) {
           return normalized;
@@ -204,8 +233,13 @@ export default async function handler(req, res) {
       }
     }
 
+    if (obj.imatges) {
+      const foundInImatges = findSquareImageInObject(obj.imatges, depth + 1);
+      if (foundInImatges) return foundInImatges;
+    }
+
     for (const k of Object.keys(obj)) {
-      if (/16x9|16_9|vertical|poster|cartell|logo/i.test(k)) continue;
+      if (k === "imatges" || /16x9|16_9|vertical|poster|cartell|logo|ara_sona|despres_sona|despres_fem|seguent/i.test(k)) continue;
       const found = findSquareImageInObject(obj[k], depth + 1);
       if (found) return found;
     }
