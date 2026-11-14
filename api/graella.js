@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     },
     {
       key: "catinfo",
-      graellaSlug: "catinfo",
+      graellaSlug: "3catinfo-radio",
       codes: ["ci", "3catinfo", "catalunya informació", "catalunya-informacio"],
       htmlMarkers: ["Emissora: 3CatInfo", "Directe: 3CatInfo (ràdio)"]
     },
@@ -171,11 +171,33 @@ export default async function handler(req, res) {
     return null;
   }
 
+  function getMadridOffsetMinutes(year, month, day, hour) {
+    // Últim diumenge de març i últim diumenge d'octubre (horari d'estiu CEST UTC+2 vs CET UTC+1)
+    const lastSundayMarch = 31 - new Date(Date.UTC(year, 2, 31)).getUTCDay();
+    const lastSundayOct = 31 - new Date(Date.UTC(year, 9, 31)).getUTCDay();
+    const afterStart = month > 3 || (month === 3 && (day > lastSundayMarch || (day === lastSundayMarch && hour >= 2)));
+    const beforeEnd = month < 10 || (month === 10 && (day < lastSundayOct || (day === lastSundayOct && hour < 3)));
+    return afterStart && beforeEnd ? 120 : 60;
+  }
+
   function parseTimestampMs(raw) {
     if (!raw) return null;
     if (typeof raw === "number") return raw > 1e11 ? raw : raw * 1000;
     if (typeof raw === "string") {
-      const parsed = Date.parse(raw);
+      const s = raw.trim();
+      // Format de 3Cat a /catradio/programacio/: "DD/MM/YYYY HH:mm:ss"
+      const dmy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+      if (dmy) {
+        const day = Number(dmy[1]);
+        const month = Number(dmy[2]);
+        const year = Number(dmy[3]);
+        const hour = Number(dmy[4]);
+        const min = Number(dmy[5]);
+        const sec = Number(dmy[6] || 0);
+        const offsetMin = getMadridOffsetMinutes(year, month, day, hour);
+        return Date.UTC(year, month - 1, day, hour, min, sec) - offsetMin * 60 * 1000;
+      }
+      const parsed = Date.parse(s);
       if (!isNaN(parsed)) return parsed;
     }
     return null;
@@ -281,6 +303,17 @@ export default async function handler(req, res) {
     }
   }
 
+  function extractHostFromScheduleNode(node) {
+    const direct = node.subtitol_programa || node.subtitol || node.presentador || "";
+    if (typeof direct === "string" && direct.trim()) return decodeHtmlEntities(direct);
+    const desc = typeof node.descripcio === "string" ? decodeHtmlEntities(node.descripcio) : "";
+    if (desc) {
+      const m = desc.match(/(?:Realitz(?:a|en)|Dirigit per|Presenta|Amb)\s*:?\s*([^.;]{3,55})/i);
+      if (m && m[1]) return m[1].trim();
+    }
+    return "";
+  }
+
   function collectScheduleItems(node, items) {
     if (!node || typeof node !== "object") return;
     if (Array.isArray(node)) {
@@ -288,20 +321,25 @@ export default async function handler(req, res) {
       return;
     }
 
-    const startRaw = node.data_inici || node.hora_inici_iso || node.start || node.inici;
-    const endRaw = node.data_fi || node.hora_fi_iso || node.end || node.fi;
+    const startRaw = node.data_emissio || node.data_inici || node.hora_inici_iso || node.start_time || node.start || node.inici;
+    const endRaw = node.data_emissio_fi || node.data_fi || node.hora_fi_iso || node.end_time || node.end || node.fi;
     const startMs = parseTimestampMs(startRaw);
     const endMs = parseTimestampMs(endRaw);
-    const title = node.titol_programa || node.titol || node.programa;
+    let title = node.titol_programa || node.titol;
+    if (!title && Array.isArray(node.programa) && node.programa[0]) {
+      title = node.programa[0].desc || node.programa[0].titol;
+    } else if (!title && typeof node.programa === "string") {
+      title = node.programa;
+    }
 
     if (startMs && title && typeof title === "string" && title.length > 1) {
-      const host = node.subtitol_programa || node.subtitol || node.presentador || "";
+      const host = extractHostFromScheduleNode(node);
       const artwork = extractMultimediaUrl(JSON.stringify(node), node);
       items.push({
         startMs,
         endMs: endMs || null,
-        title: title.trim(),
-        host: typeof host === "string" ? host.trim() : "",
+        title: decodeHtmlEntities(title),
+        host,
         artwork: artwork || null
       });
     }
@@ -313,15 +351,22 @@ export default async function handler(req, res) {
 
   async function fetchChannelSchedule(slug) {
     const rawItems = [];
-    try {
-      const r = await fetch(`https://www.3cat.cat/3cat/programacio/${slug}/`, { headers });
-      if (!r.ok) return [];
-      const html = await r.text();
-      const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-      if (m && m[1]) {
-        collectScheduleItems(JSON.parse(m[1]), rawItems);
-      }
-    } catch (e) {}
+    const urls = [
+      `https://www.3cat.cat/catradio/programacio/${slug}/`,
+      `https://www.3cat.cat/3cat/programacio/${slug}/`
+    ];
+    for (const url of urls) {
+      try {
+        const r = await fetch(url, { headers });
+        if (!r.ok) continue;
+        const html = await r.text();
+        const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+        if (m && m[1]) {
+          collectScheduleItems(JSON.parse(m[1]), rawItems);
+          if (rawItems.length > 0) break;
+        }
+      } catch (e) {}
+    }
 
     rawItems.sort((a, b) => a.startMs - b.startMs);
     const deduped = [];
