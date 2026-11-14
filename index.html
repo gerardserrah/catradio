@@ -8,7 +8,22 @@
   <meta name="apple-mobile-web-app-title" content="CatRàdio" />
   <meta name="theme-color" content="#0a0a0a" id="themeColorMeta" />
   <link rel="manifest" href="/manifest.json" />
-  <link rel="apple-touch-icon" href="/icona-catradio.png" />
+  <link rel="icon" type="image/png" href="/icona-catradio-light.png" media="(prefers-color-scheme: light)" />
+  <link rel="icon" type="image/png" href="/icona-catradio-dark.png" media="(prefers-color-scheme: dark)" />
+  <link rel="apple-touch-icon" id="appleTouchIcon" href="/icona-catradio-light.png" />
+  <script>
+    (function () {
+      const iconEl = document.getElementById("appleTouchIcon");
+      const mq = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+      const updateIcon = (isDark) => {
+        if (iconEl) iconEl.href = isDark ? "/icona-catradio-dark.png" : "/icona-catradio-light.png";
+      };
+      if (mq) {
+        updateIcon(mq.matches);
+        if (mq.addEventListener) mq.addEventListener("change", (e) => updateIcon(e.matches));
+      }
+    })();
+  </script>
   <title>CatRàdio Directe</title>
   <!-- hls.js per permetre Timeshift/DVR i memòria cau llarga en navegadors no-Safari -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>

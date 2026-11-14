@@ -8,10 +8,16 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
+      "src": "/icona-catradio-light.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/icona-catradio-dark.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
