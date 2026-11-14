@@ -588,24 +588,128 @@ export default async function handler(req, res) {
     return deduped;
   }
 
+  function findSongInfo(obj, depth = 0) {
+    if (!obj || typeof obj !== "object" || depth > 8) return null;
+
+    const candidates = [
+      obj.ara_sona,
+      obj.canco_actual,
+      obj.canco,
+      obj.canço,
+      obj.song,
+      obj.track,
+      obj.pista,
+      obj.audio_track
+    ];
+
+    for (const c of candidates) {
+      if (c && typeof c === "object") {
+        const title = c.titol || c.titol_canco || c.nom || c.canco || c.title || c.name;
+        const artist = c.artista || c.interpret || c.grup || c.cantant || c.artist || c.author;
+        if (title && typeof title === "string" && title.trim()) {
+          const rawImg = c.imatge || c.cover || c.foto || c.artwork || c.src || c.url;
+          const songImg = findSquareImageInObject(c) || normalizeImg(typeof rawImg === "string" ? rawImg : null);
+          return {
+            title: decodeHtmlEntities(title),
+            artist: artist ? decodeHtmlEntities(artist) : "",
+            artwork: songImg || null
+          };
+        }
+      } else if (typeof c === "string" && c.includes("-") && c.length > 3) {
+        const parts = c.split("-").map((p) => p.trim());
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          return {
+            title: decodeHtmlEntities(parts[1]),
+            artist: decodeHtmlEntities(parts[0]),
+            artwork: null
+          };
+        }
+      }
+    }
+
+    if ((obj.titol_canco || obj.canco) && (obj.artista || obj.interpret)) {
+      const title = obj.titol_canco || obj.canco || obj.titol || obj.title;
+      const artist = obj.artista || obj.interpret || obj.grup || obj.cantant || obj.artist;
+      if (title && typeof title === "string" && title.trim()) {
+        const songImg = findSquareImageInObject(obj);
+        return {
+          title: decodeHtmlEntities(title),
+          artist: artist ? decodeHtmlEntities(artist) : "",
+          artwork: songImg || null
+        };
+      }
+    }
+
+    for (const k of Object.keys(obj)) {
+      if (/^(imatges|schedule|graella|tokens)$/i.test(k)) continue;
+      if (obj[k] && typeof obj[k] === "object") {
+        const found = findSongInfo(obj[k], depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function findSongInfoInHtml(html) {
+    if (!html || typeof html !== "string") return null;
+    const m = html.match(/Ara sona:?\s*(?:<[^>]+>\s*)*([^<]+?)\s*-\s*([^<]+)/i) ||
+              html.match(/(?:Canç[oó]|Tema):?\s*(?:<[^>]+>\s*)*([^<]+)/i);
+    if (m && m[1] && m[2]) {
+      return {
+        artist: decodeHtmlEntities(m[1]),
+        title: decodeHtmlEntities(m[2]),
+        artwork: null
+      };
+    }
+    return null;
+  }
+
   const channels = {};
   const debugLog = [];
 
   try {
-    const response = await fetch("https://www.3cat.cat/3cat/directes/catalunya-radio/", { headers });
-    debugLog.push({ url: "https://www.3cat.cat/3cat/directes/catalunya-radio/", status: response.status });
+    let icatNextData = null;
+    let icatHtml = "";
+    let directesNextData = null;
 
-    if (response.ok) {
-      const html = await response.text();
+    const [directesRes, icatRes] = await Promise.allSettled([
+      fetch("https://www.3cat.cat/3cat/directes/catalunya-radio/", { headers }),
+      fetch("https://www.3cat.cat/catradio/icat/", { headers })
+    ]);
+
+    if (directesRes.status === "fulfilled" && directesRes.value.ok) {
+      const html = await directesRes.value.text();
       const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
       if (nextDataMatch && nextDataMatch[1]) {
         try {
-          extractFromNextData(JSON.parse(nextDataMatch[1]), channels);
+          directesNextData = JSON.parse(nextDataMatch[1]);
+          extractFromNextData(directesNextData, channels);
         } catch (err) {
           debugLog.push({ nextDataError: err.message });
         }
       }
       extractFromRenderedHtml(html, channels);
+    }
+
+    if (icatRes.status === "fulfilled" && icatRes.value.ok) {
+      icatHtml = await icatRes.value.text();
+      const nextDataMatch = icatHtml.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+      if (nextDataMatch && nextDataMatch[1]) {
+        try {
+          icatNextData = JSON.parse(nextDataMatch[1]);
+        } catch (e) {}
+      }
+    }
+
+    if (channels.icat) {
+      channels.icat.programTitle = channels.icat.title;
+      const song =
+        (icatNextData ? findSongInfo(icatNextData) : null) ||
+        findSongInfoInHtml(icatHtml) ||
+        (directesNextData ? findSongInfo(directesNextData) : null);
+      if (song && song.title) {
+        channels.icat.song = song;
+      }
     }
 
     const uniqueSlugs = [...new Set(CHANNEL_MATCHERS.map((m) => m.graellaSlug))];

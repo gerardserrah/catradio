@@ -220,6 +220,15 @@
         line-height: 1.2 !important;
       }
 
+      .program-context {
+        font-size: 12px !important;
+      }
+
+      .program-context.is-visible {
+        margin-top: 2px !important;
+        max-height: 20px !important;
+      }
+
       .next-pill {
         font-size: 11px !important;
       }
@@ -283,7 +292,7 @@
         height: 28px !important;
       }
 
-      .volume-airplay-row {
+      .airplay-row {
         margin-top: 2px !important;
       }
     }
@@ -531,6 +540,34 @@
       color: #d1d5db;
       margin: 0;
       line-height: 1.35;
+    }
+
+    .program-context {
+      position: relative;
+      z-index: 2;
+      font-size: 13px;
+      color: #9ca3af;
+      margin: 0;
+      max-width: 90%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-height: 0;
+      opacity: 0;
+      transform: translateY(3px);
+      pointer-events: none;
+      transition:
+        max-height 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.3s ease,
+        transform 0.35s ease,
+        margin 0.35s ease;
+    }
+
+    .program-context.is-visible {
+      margin-top: 4px;
+      max-height: 22px;
+      opacity: 0.9;
+      transform: translateY(0);
     }
 
     .next-pill {
@@ -882,105 +919,37 @@
       transition: color 0.3s ease;
     }
 
-    /* Barra inferior de Volum + AirPlay */
-    .volume-airplay-row {
+    /* Fila inferior d'AirPlay */
+    .airplay-row {
       display: flex;
+      justify-content: center;
       align-items: center;
-      gap: 12px;
       width: 100%;
-      padding: 2px 4px 0 4px;
-      margin-top: 6px;
-      margin-bottom: 4px;
+      margin-top: 10px;
+      margin-bottom: 2px;
     }
 
-    .vol-icon-btn,
     .airplay-btn {
       background: transparent;
       border: none;
       color: #9ca3af;
-      padding: 4px;
+      padding: 6px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       flex-shrink: 0;
-      transition: transform 0.15s ease, color 0.2s ease;
+      border-radius: 50%;
+      transition: transform 0.15s ease, color 0.2s ease, background 0.2s ease;
     }
 
-    .vol-icon-btn:active,
     .airplay-btn:active {
-      transform: scale(0.9);
+      transform: scale(0.92);
       color: #ffffff;
     }
 
     .airplay-btn.is-active {
       color: var(--accent-color);
-    }
-
-    .volume-slider {
-      --vol-progress: 100%;
-      -webkit-appearance: none;
-      appearance: none;
-      flex: 1;
-      height: 24px;
-      background: transparent;
-      outline: none;
-      cursor: pointer;
-      margin: 0;
-    }
-
-    .volume-slider::-webkit-slider-runnable-track {
-      width: 100%;
-      height: 4px;
-      background: linear-gradient(
-        to right,
-        #d1d5db 0%,
-        #d1d5db var(--vol-progress, 100%),
-        #2f2f2f var(--vol-progress, 100%),
-        #2f2f2f 100%
-      );
-      border-radius: 999px;
-    }
-
-    .volume-slider:active::-webkit-slider-runnable-track {
-      background: linear-gradient(
-        to right,
-        var(--accent-color) 0%,
-        var(--accent-color) var(--vol-progress, 100%),
-        #2f2f2f var(--vol-progress, 100%),
-        #2f2f2f 100%
-      );
-    }
-
-    .volume-slider::-moz-range-track {
-      width: 100%;
-      height: 4px;
-      background: #2f2f2f;
-      border-radius: 999px;
-    }
-
-    .volume-slider::-moz-range-progress {
-      height: 4px;
-      background: #d1d5db;
-      border-radius: 999px;
-    }
-
-    .volume-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 15px;
-      height: 15px;
-      margin-top: -5.5px;
-      border-radius: 50%;
-      background: #ffffff;
-      cursor: pointer;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
-      transition: transform 0.12s ease, background-color 0.12s ease;
-    }
-
-    .volume-slider:active::-webkit-slider-thumb {
-      transform: scale(1.22);
-      background: var(--accent-color);
     }
 
     /* Peu amb reconnexió */
@@ -1121,6 +1090,7 @@
       </div>
       <h1 class="program-title" id="programTitle">Catalunya Ràdio</h1>
       <p class="program-host" id="programHost">Connexió territorial: Girona</p>
+      <p class="program-context" id="programContext"></p>
       <div class="next-pill" id="nextPill"></div>
     </div>
 
@@ -1193,21 +1163,10 @@
         </button>
       </div>
 
-      <!-- Barra de volum i botó d'AirPlay -->
-      <div class="volume-airplay-row">
-        <button class="vol-icon-btn" id="muteBtn" aria-label="Silenciar o activar so">
-          <svg id="volIconSpeaker" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-            <path id="volWave1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-            <path id="volWave2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-            <line id="volMuteSlash" x1="22" y1="9" x2="16" y2="15" style="display:none;"></line>
-          </svg>
-        </button>
-
-        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100" step="1" aria-label="Volum" />
-
+      <!-- Botó d'emissió AirPlay -->
+      <div class="airplay-row">
         <button class="airplay-btn" id="airplayBtn" aria-label="Emetre per AirPlay" title="AirPlay">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"></path>
             <polygon points="12 15 17 21 7 21 12 15" fill="currentColor"></polygon>
           </svg>
@@ -1283,6 +1242,7 @@
     const statusMsg = document.getElementById("statusMsg");
     const programTitle = document.getElementById("programTitle");
     const programHost = document.getElementById("programHost");
+    const programContext = document.getElementById("programContext");
     const nextPill = document.getElementById("nextPill");
     const artworkWrapper = document.getElementById("artworkWrapper");
     const artwork = document.getElementById("artwork");
@@ -1303,11 +1263,6 @@
     const hourJumpBtn = document.getElementById("hourJumpBtn");
     const hourJumpLabel = document.getElementById("hourJumpLabel");
     const scrubber = document.getElementById("scrubber");
-    const volumeSlider = document.getElementById("volumeSlider");
-    const muteBtn = document.getElementById("muteBtn");
-    const volWave1 = document.getElementById("volWave1");
-    const volWave2 = document.getElementById("volWave2");
-    const volMuteSlash = document.getElementById("volMuteSlash");
     const airplayBtn = document.getElementById("airplayBtn");
     const appShell = document.querySelector(".app-shell");
     const stationsGrid = document.getElementById("stationsGrid");
@@ -1509,6 +1464,10 @@
       lastRenderedProgramKey = "";
       programTitle.textContent = st.name;
       programHost.textContent = defaultSubtitle;
+      if (programContext) {
+        programContext.textContent = "";
+        programContext.classList.remove("is-visible");
+      }
       nextPill.classList.remove("is-visible");
       setArtworkSafe(null, st.logo);
       syncMediaSession(st.name, defaultSubtitle);
@@ -1527,6 +1486,10 @@
           lastRenderedProgramKey = fallbackKey;
           programTitle.textContent = st.name;
           programHost.textContent = defaultSubtitle;
+          if (programContext) {
+            programContext.textContent = "";
+            programContext.classList.remove("is-visible");
+          }
           nextPill.classList.remove("is-visible");
           setArtworkSafe(null, st.logo);
           syncMediaSession(st.name, defaultSubtitle);
@@ -1538,11 +1501,15 @@
       const liveRemainingMs = liveChannelData.endMs ? (liveChannelData.endMs - emissionTimestampMs) : null;
       const showLiveNext = liveRemainingMs !== null && liveRemainingMs > 0 && liveRemainingMs <= TWENTY_MIN_MS;
 
+      const isSongAvailable = currentStation === "icat" && liveChannelData.song && liveChannelData.song.title;
+      const currentProgramName = liveChannelData.programTitle || liveChannelData.title || st.name;
+
       let chosen = {
-        title: liveChannelData.title,
-        host: liveChannelData.host || defaultSubtitle,
-        artwork: liveChannelData.artwork,
-        next: showLiveNext ? (liveChannelData.next || "") : ""
+        title: isSongAvailable ? liveChannelData.song.title : liveChannelData.title,
+        host: isSongAvailable ? (liveChannelData.song.artist || currentProgramName) : (liveChannelData.host || defaultSubtitle),
+        artwork: isSongAvailable ? (liveChannelData.song.artwork || liveChannelData.artwork) : liveChannelData.artwork,
+        next: showLiveNext ? (liveChannelData.next || "") : "",
+        programContext: isSongAvailable ? currentProgramName : ""
       };
 
       // Cerquem a la graella horària quin programa s'emetia en l'instant d'emissió (tant en directe com tirant enrere)
@@ -1572,25 +1539,42 @@
             (slot.title && liveChannelData.title && slot.title.trim().toLowerCase() === liveChannelData.title.trim().toLowerCase());
 
           chosen = {
-            title: isSameAsLive ? (liveChannelData.title || slot.title) : slot.title,
-            host: (isSameAsLive ? (liveChannelData.host || slot.host) : (slot.host || "")) || defaultSubtitle,
-            artwork: isSameAsLive ? (liveChannelData.artwork || slot.artwork) : (slot.artwork || liveChannelData.artwork),
-            next: isWithin20Min ? candidateNext : ""
+            title: isSongAvailable ? liveChannelData.song.title : (isSameAsLive ? (liveChannelData.title || slot.title) : slot.title),
+            host: isSongAvailable ? (liveChannelData.song.artist || currentProgramName) : ((isSameAsLive ? (liveChannelData.host || slot.host) : (slot.host || "")) || defaultSubtitle),
+            artwork: isSongAvailable ? (liveChannelData.song.artwork || liveChannelData.artwork) : (isSameAsLive ? (liveChannelData.artwork || slot.artwork) : (slot.artwork || liveChannelData.artwork)),
+            next: isWithin20Min ? candidateNext : "",
+            programContext: isSongAvailable ? currentProgramName : ""
           };
         }
       }
 
       // Només mostrem "A continuació" quan s'està reproduint activament, no s'està fent scrub, no s'està canviant d'emissora i fa una estona que s'escolta la mateixa emissora
-      const isSwitchingStation = (Date.now() - lastStationSwitchTimestamp) < 25000;
+      const isSwitchingStation = (Date.now() - lastStationSwitchTimestamp) < 20000;
       const isStationDragging = Boolean(stationDragState);
       const visibleNext = (isPlaying && !isScrubbing && !isStationDragging && !isSwitchingStation) ? chosen.next : "";
 
-      const renderKey = `${currentStation}|${chosen.title}|${chosen.artwork}|${visibleNext}`;
+      // El programa sota la cançó només apareix quan estem escoltant de forma estable i NO s'està desplaçant entre emissores (per evitar desplaçar la miniatura)
+      const visibleProgramContext = (chosen.programContext && !isStationDragging && !isSwitchingStation && !isScrubbing)
+        ? `Programa: ${chosen.programContext}`
+        : "";
+
+      const renderKey = `${currentStation}|${chosen.title}|${chosen.host}|${chosen.artwork}|${visibleNext}|${visibleProgramContext}`;
       if (renderKey === lastRenderedProgramKey) return;
       lastRenderedProgramKey = renderKey;
 
       programTitle.textContent = chosen.title;
       programHost.textContent = chosen.host;
+
+      if (programContext) {
+        if (visibleProgramContext) {
+          programContext.textContent = visibleProgramContext;
+          programContext.classList.add("is-visible");
+        } else {
+          programContext.classList.remove("is-visible");
+          programContext.textContent = "";
+        }
+      }
+
       if (visibleNext) {
         nextPill.textContent = visibleNext;
         nextPill.classList.add("is-visible");
@@ -2289,84 +2273,6 @@
     scrubber.addEventListener("pointercancel", commitScrub);
     scrubber.addEventListener("touchcancel", commitScrub);
 
-    // Control de Volum i Silenci
-    let savedVolumeBeforeMute = 100;
-    let currentVolumePct = 100;
-    let iosVolTipTimer = null;
-
-    function showIosVolumeTip() {
-      if (!isIOSDevice || !statusMsg) return;
-      statusMsg.textContent = "A iOS el volum es regula amb els botons del dispositiu";
-      if (iosVolTipTimer) clearTimeout(iosVolTipTimer);
-      iosVolTipTimer = setTimeout(() => {
-        if (statusMsg.textContent === "A iOS el volum es regula amb els botons del dispositiu") {
-          statusMsg.textContent = "";
-        }
-      }, 3200);
-    }
-
-    function updateVolumeUI(volPct) {
-      const clamped = Math.min(100, Math.max(0, Math.round(volPct)));
-      if (volumeSlider) {
-        volumeSlider.value = String(clamped);
-        volumeSlider.style.setProperty("--vol-progress", `${clamped}%`);
-      }
-      const isMuted = clamped === 0 || audio.muted;
-      if (volWave1) volWave1.style.display = (!isMuted && clamped > 5) ? "block" : "none";
-      if (volWave2) volWave2.style.display = (!isMuted && clamped >= 50) ? "block" : "none";
-      if (volMuteSlash) volMuteSlash.style.display = isMuted ? "block" : "none";
-    }
-
-    function applyVolumeFromPct(volPct) {
-      const clamped = Math.min(100, Math.max(0, Math.round(volPct)));
-      currentVolumePct = clamped;
-      if (clamped > 0) {
-        savedVolumeBeforeMute = clamped;
-      }
-      const normalized = clamped / 100;
-      audio.muted = (clamped === 0);
-      try {
-        audio.volume = normalized;
-      } catch (e) {}
-      updateVolumeUI(clamped);
-    }
-
-    if (volumeSlider) {
-      volumeSlider.addEventListener("input", () => {
-        const val = parseFloat(volumeSlider.value) || 0;
-        applyVolumeFromPct(val);
-        if (isIOSDevice && val > 0 && val < 98) {
-          showIosVolumeTip();
-        }
-      });
-      volumeSlider.addEventListener("pointerdown", () => {
-        if (isIOSDevice) showIosVolumeTip();
-      });
-      volumeSlider.addEventListener("touchstart", () => {
-        if (isIOSDevice) showIosVolumeTip();
-      }, { passive: true });
-    }
-
-    if (muteBtn) {
-      muteBtn.addEventListener("click", () => {
-        const currentPct = parseFloat(volumeSlider ? volumeSlider.value : "100") || 0;
-        if (audio.muted || currentPct === 0) {
-          applyVolumeFromPct(savedVolumeBeforeMute > 5 ? savedVolumeBeforeMute : 80);
-          if (isIOSDevice && statusMsg) {
-            statusMsg.textContent = "So activat";
-            setTimeout(() => { if (statusMsg.textContent === "So activat") statusMsg.textContent = ""; }, 2200);
-          }
-        } else {
-          savedVolumeBeforeMute = currentPct;
-          applyVolumeFromPct(0);
-          if (isIOSDevice && statusMsg) {
-            statusMsg.textContent = "Silenci activat";
-            setTimeout(() => { if (statusMsg.textContent === "Silenci activat") statusMsg.textContent = ""; }, 2200);
-          }
-        }
-      });
-    }
-
     // Botó d'emissió AirPlay
     if (airplayBtn) {
       airplayBtn.addEventListener("click", () => {
@@ -2395,8 +2301,6 @@
         airplayBtn.classList.toggle("is-active", Boolean(audio.webkitCurrentPlaybackTargetIsWireless));
       });
     }
-
-    updateVolumeUI(100);
 
     // Selector d'emissores amb lliscament horitzontal tàctil i interpolació del color
     function hexToRgb(hex) {
