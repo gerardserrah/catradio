@@ -870,7 +870,7 @@
   </div>
 
   <!-- Reproductor natiu HTML5 (màxima estabilitat en segon pla a iOS) -->
-  <audio id="audioPlayer" preload="none" playsinline></audio>
+  <audio id="audioPlayer" preload="auto" autoplay playsinline></audio>
 
   <script>
     const STREAMS = {
@@ -989,7 +989,7 @@
       }
     });
 
-    const STREAM_DELAY_SECONDS = 40; // Compensació exacta del retard del flux HLS DVR + coixí de directe (ajustat -10s)
+    const STREAM_DELAY_SECONDS = 52; // Compensació exacta del retard del flux HLS DVR + coixí de directe (ajustat -12s addicionals)
     const LIVE_EDGE_CUSHION_SECONDS = 24; // Coixí de seguretat (4 segments HLS de 6s) per evitar micro-talls al directe
     let currentStation = "catradio";
     let isPlaying = false;
@@ -999,6 +999,8 @@
     let resumeSavedTime = null;
     let initialLiveCushionApplied = false;
     let streamLoadTimestamp = 0;
+    let peakMediaMinusWall = null;
+    let lastAutoplayUnlockMs = 0;
     let hlsInstance = null;
     let isScrubbing = false;
     let lagBubbleHideTimer = null;
@@ -1249,7 +1251,20 @@
 
     function getSafeLiveTarget(range) {
       if (!range) return null;
-      return Math.max(range.start, range.end - LIVE_EDGE_CUSHION_SECONDS);
+      const nowSec = Date.now() / 1000;
+      const sampleOffset = range.end - nowSec;
+      if (peakMediaMinusWall === null || Math.abs(sampleOffset - peakMediaMinusWall) > 30) {
+        peakMediaMinusWall = sampleOffset;
+      } else if (sampleOffset >= peakMediaMinusWall) {
+        peakMediaMinusWall = sampleOffset;
+      } else {
+        // Suau adaptació per si hi ha un lleuger desfasament de rellotge a llarg termini
+        peakMediaMinusWall -= 0.0005;
+      }
+      // Interpola l'esglaó de 6 segons dels segments HLS perquè el punt de referència avanci de forma contínua amb Date.now()
+      const continuousEnd = Math.min(range.end + 6, Math.max(range.end - 6, nowSec + peakMediaMinusWall));
+      const rawTarget = continuousEnd - LIVE_EDGE_CUSHION_SECONDS;
+      return Math.max(range.start, Math.min(range.end - 2, rawTarget));
     }
 
     function computeLastHourTarget(liveEmissionMs) {
@@ -1444,6 +1459,7 @@
       setLoading(true);
       currentLagSeconds = 0;
       pausedAtEmissionMs = null;
+      peakMediaMinusWall = null;
       initialLiveCushionApplied = false;
       streamLoadTimestamp = Date.now();
       if (hlsInstance) {
@@ -1454,26 +1470,43 @@
       const streamUrl = baseUrl;
       activeStreamUrl = baseUrl;
 
+      const isAutoplayBlockedError = (err) => {
+        if (!err) return false;
+        const name = String(err.name || "");
+        const msg = String(err.message || "");
+        return name === "NotAllowedError" || name === "AbortError" || /notallowed|interaction|gesture|permission/i.test(msg);
+      };
+
       // Prioritzem el motor natiu HLS a Safari/iOS per màxima estabilitat en segon pla
       const isNativeHls = audio.canPlayType("application/vnd.apple.mpegurl") !== "";
 
       if (isNativeHls) {
         audio.src = streamUrl;
+        audio.load();
         try {
           await audio.play();
+          autoplayPending = false;
           setLoading(false);
           setPlayingState(true);
         } catch (err) {
-          // Fallback a MP3 oficial de la CCMA si falla el manifest HLS
+          if (isAutoplayBlockedError(err)) {
+            // Mantenim el flux HLS carregat a punt per sonar a l'instant (sense degradar a MP3!)
+            autoplayPending = true;
+            setLoading(false);
+            setPlayingState(false);
+            return;
+          }
+          // Fallback a MP3 oficial de la CCMA només si realment falla la càrrega del manifest HLS
           audio.src = STREAMS[currentStation].fallbackMp3;
           try {
             await audio.play();
+            autoplayPending = false;
             setLoading(false);
             setPlayingState(true);
           } catch (e2) {
+            autoplayPending = true;
             setLoading(false);
             setPlayingState(false);
-            statusMsg.textContent = "Toca Play per iniciar l'àudio";
           }
         }
       } else if (window.Hls && Hls.isSupported()) {
@@ -1488,9 +1521,11 @@
         hlsInstance.on(Hls.Events.MANIFEST_PARSED, async () => {
           try {
             await audio.play();
+            autoplayPending = false;
             setLoading(false);
             setPlayingState(true);
           } catch (err) {
+            autoplayPending = true;
             setLoading(false);
             setPlayingState(false);
           }
@@ -1501,6 +1536,7 @@
             hlsInstance = null;
             audio.src = STREAMS[currentStation].fallbackMp3;
             audio.play().then(() => {
+              autoplayPending = false;
               setLoading(false);
               setPlayingState(true);
             }).catch(() => {
@@ -1513,9 +1549,11 @@
       } else {
         audio.src = STREAMS[currentStation].fallbackMp3;
         audio.play().then(() => {
+          autoplayPending = false;
           setLoading(false);
           setPlayingState(true);
         }).catch(() => {
+          autoplayPending = true;
           setLoading(false);
           setPlayingState(false);
         });
@@ -1601,9 +1639,27 @@
     }
 
     // Esdeveniments d'àudio natius (sincronitza estat, aplica coixí anti-talls a l'inici i reprèn després d'interrupcions com WhatsApp)
-    audio.addEventListener("loadedmetadata", applyInitialLiveCushionIfNeeded);
-    audio.addEventListener("canplay", applyInitialLiveCushionIfNeeded);
-    audio.addEventListener("play", () => setPlayingState(true));
+    const tryPendingAutoplay = () => {
+      if (!autoplayPending || isPlaying || manualPauseRequested || !audio.src) return;
+      audio.play().then(() => {
+        autoplayPending = false;
+        setLoading(false);
+        setPlayingState(true);
+      }).catch(() => {});
+    };
+
+    audio.addEventListener("loadedmetadata", () => {
+      applyInitialLiveCushionIfNeeded();
+      tryPendingAutoplay();
+    });
+    audio.addEventListener("canplay", () => {
+      applyInitialLiveCushionIfNeeded();
+      tryPendingAutoplay();
+    });
+    audio.addEventListener("play", () => {
+      autoplayPending = false;
+      setPlayingState(true);
+    });
     audio.addEventListener("pause", () => {
       if (pausedAtEmissionMs === null) {
         pausedAtEmissionMs = Date.now() - ((STREAM_DELAY_SECONDS + currentLagSeconds) * 1000);
@@ -1663,6 +1719,8 @@
 
     // Botó principal Play / Pause
     playBtn.addEventListener("click", () => {
+      // Evita que el primer toc que desbloqueja l'autoplay pausi l'àudio uns mil·lisegons després
+      if (Date.now() - lastAutoplayUnlockMs < 550) return;
       if (isPlaying) {
         pausePlayback();
       } else {
@@ -1847,12 +1905,17 @@
     fetchLiveProgramMetadata();
     updateDvrClockUI();
 
-    // Amaga la pantalla d'inici (splash screen)
+    // Amaga la pantalla d'inici (splash screen) i reintenta autoplay en acabar la transició
+    let autoplayPending = true;
     const splashScreen = document.getElementById("splashScreen");
     if (splashScreen) {
       setTimeout(() => {
         splashScreen.classList.add("splash-hide");
-        setTimeout(() => splashScreen.remove(), 350);
+        tryPendingAutoplay();
+        setTimeout(() => {
+          splashScreen.remove();
+          tryPendingAutoplay();
+        }, 350);
       }, 1250);
     }
 
@@ -1860,22 +1923,39 @@
     metadataTimer = setInterval(fetchLiveProgramMetadata, 45000);
 
     // Intenta reproduir automàticament en entrar a la webapp
-    let autoplayPending = true;
     startPlayback(false).then(() => {
       if (isPlaying) autoplayPending = false;
     });
 
-    // Si iOS bloqueja l'autoplay sense interacció prèvia, arrenca al primer toc a qualsevol punt de la pantalla
-    const unlockAutoplayOnFirstTouch = () => {
-      if (autoplayPending && !isPlaying) {
-        autoplayPending = false;
+    // Si iOS bloqueja l'autoplay fins al primer gest, arrenca al primer toc a qualsevol punt (sense cancel·lar els listeners fins que soni de debò)
+    const unlockAutoplayOnFirstGesture = () => {
+      if (!autoplayPending || isPlaying) {
+        if (isPlaying) {
+          document.removeEventListener("pointerup", unlockAutoplayOnFirstGesture, true);
+          document.removeEventListener("touchend", unlockAutoplayOnFirstGesture, true);
+          document.removeEventListener("click", unlockAutoplayOnFirstGesture, true);
+        }
+        return;
+      }
+      lastAutoplayUnlockMs = Date.now();
+      if (audio.src) {
+        audio.play().then(() => {
+          autoplayPending = false;
+          setLoading(false);
+          setPlayingState(true);
+          document.removeEventListener("pointerup", unlockAutoplayOnFirstGesture, true);
+          document.removeEventListener("touchend", unlockAutoplayOnFirstGesture, true);
+          document.removeEventListener("click", unlockAutoplayOnFirstGesture, true);
+        }).catch(() => {
+          startPlayback(false);
+        });
+      } else {
         startPlayback(false);
       }
-      document.removeEventListener("touchstart", unlockAutoplayOnFirstTouch);
-      document.removeEventListener("click", unlockAutoplayOnFirstTouch);
     };
-    document.addEventListener("touchstart", unlockAutoplayOnFirstTouch, { passive: true });
-    document.addEventListener("click", unlockAutoplayOnFirstTouch, { passive: true });
+    document.addEventListener("pointerup", unlockAutoplayOnFirstGesture, true);
+    document.addEventListener("touchend", unlockAutoplayOnFirstGesture, true);
+    document.addEventListener("click", unlockAutoplayOnFirstGesture, true);
   </script>
 </body>
 </html>
