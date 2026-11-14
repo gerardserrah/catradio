@@ -127,6 +127,30 @@
       padding: calc(env(safe-area-inset-top, 16px) + 6px) 20px calc(env(safe-area-inset-bottom, 16px) + 10px) 20px;
     }
 
+    /* Bloqueja la rotació horitzontal en mòbils mantenint sempre el format vertical */
+    @media screen and (orientation: landscape) and (max-height: 540px) {
+      html, body {
+        width: var(--portrait-w, 100dvh) !important;
+        height: var(--portrait-h, 100dvw) !important;
+        min-height: var(--portrait-h, 100dvw) !important;
+        overflow: hidden !important;
+      }
+      body {
+        position: fixed;
+        top: 100%;
+        left: 0;
+        right: auto;
+        bottom: auto;
+        transform: rotate(-90deg);
+        transform-origin: left top;
+      }
+      .app-shell {
+        width: var(--portrait-w, 100dvh) !important;
+        height: var(--portrait-h, 100dvw) !important;
+        max-width: 440px;
+      }
+    }
+
     /* Graella de 5 emissores oficials */
     .stations-grid {
       display: grid;
@@ -339,18 +363,39 @@
     .next-pill {
       position: relative;
       z-index: 2;
-      margin-top: 12px;
+      margin-top: 0px;
+      max-height: 0px;
+      padding: 0px 12px;
       font-size: 12px;
       color: #9ca3af;
       background: transparent;
-      border: 1px solid currentColor;
-      padding: 4px 12px;
+      border: 1px solid transparent;
       border-radius: 999px;
       max-width: 92%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      display: none;
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(6px) scale(0.96);
+      pointer-events: none;
+      transition:
+        max-height 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-top 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        padding 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 0.34s ease;
+    }
+
+    .next-pill.is-visible {
+      margin-top: 12px;
+      max-height: 32px;
+      padding: 4px 12px;
+      border-color: currentColor;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
     }
 
     /* Barra de Timeshift / Rellotge */
@@ -385,12 +430,9 @@
       transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), color 0.25s ease;
     }
 
-    .clock-display.seek-nudge-left {
-      animation: clockNudgeLeft 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
+    .clock-display.seek-nudge-left,
     .clock-display.seek-nudge-right {
-      animation: clockNudgeRight 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+      animation: clockNudgeUp 0.36s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     .clock-display.seek-nudge-left .clock-icon,
@@ -399,16 +441,10 @@
       color: var(--accent-color);
     }
 
-    @keyframes clockNudgeLeft {
-      0% { transform: translateX(0); }
-      35% { transform: translateX(-5px); color: #ffffff; }
-      100% { transform: translateX(0); }
-    }
-
-    @keyframes clockNudgeRight {
-      0% { transform: translateX(0); }
-      35% { transform: translateX(5px); color: #ffffff; }
-      100% { transform: translateX(0); }
+    @keyframes clockNudgeUp {
+      0% { transform: translateY(0); }
+      38% { transform: translateY(-4.5px); color: #ffffff; }
+      100% { transform: translateY(0); }
     }
 
     .scrubber-wrap {
@@ -550,7 +586,11 @@
       opacity: 0.45;
     }
 
-    .skip-btn:active,
+    .skip-btn:active {
+      transform: scale(1.16);
+      color: #ffffff;
+    }
+
     .live-jump-btn:active {
       transform: scale(0.92);
       color: #ffffff;
@@ -560,24 +600,15 @@
       will-change: transform;
     }
 
-    .skip-btn.skip-anim-back svg {
-      animation: skipRotateBack 0.38s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
+    .skip-btn.skip-anim-back svg,
     .skip-btn.skip-anim-fwd svg {
-      animation: skipRotateFwd 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+      animation: skipPopScale 0.34s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    @keyframes skipRotateBack {
-      0% { transform: rotate(0deg) scale(1); }
-      35% { transform: rotate(-22deg) translateX(-3px) scale(0.94); color: var(--accent-color); }
-      100% { transform: rotate(0deg) scale(1); }
-    }
-
-    @keyframes skipRotateFwd {
-      0% { transform: rotate(0deg) scale(1); }
-      35% { transform: rotate(22deg) translateX(3px) scale(0.94); color: var(--accent-color); }
-      100% { transform: rotate(0deg) scale(1); }
+    @keyframes skipPopScale {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.22); color: var(--accent-color); }
+      100% { transform: scale(1); }
     }
 
     .scrubber.seek-pulse::-webkit-slider-thumb {
@@ -1100,14 +1131,25 @@
     const volMuteSlash = document.getElementById("volMuteSlash");
     const airplayBtn = document.getElementById("airplayBtn");
 
-    // Garanteix que la webapp ocupi sempre el 100% de l'alçada física a iOS (evita el bug aleatori de WebKit amb safe-area)
+    // Garanteix que la webapp ocupi sempre el 100% de l'alçada física a iOS i bloqueja la rotació en mòbils
     function syncViewportHeight() {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        screen.orientation.lock("portrait").catch(() => {});
+      }
       const isStandalone = window.navigator.standalone === true ||
         (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
       const vvHeight = window.visualViewport ? Math.round(window.visualViewport.height) : 0;
+      const innerW = Math.round(window.innerWidth || 0);
       const innerH = Math.round(window.innerHeight || 0);
       const clientH = Math.round(document.documentElement.clientHeight || 0);
       const screenH = (window.screen && window.screen.height) ? Math.round(window.screen.height) : 0;
+      const isMobileLandscape = innerW > innerH && innerH <= 540;
+      if (isMobileLandscape) {
+        document.documentElement.style.setProperty("--portrait-w", `${innerH}px`);
+        document.documentElement.style.setProperty("--portrait-h", `${innerW}px`);
+        document.documentElement.style.setProperty("--app-height", `${innerW}px`);
+        return;
+      }
       const isPortrait = !window.matchMedia || window.matchMedia("(orientation: portrait)").matches;
       const baseH = Math.max(innerH, clientH, vvHeight);
       const targetH = (isStandalone && isPortrait && screenH >= baseH && (screenH - baseH) <= 115)
@@ -1153,6 +1195,8 @@
     let seekPulseTimer = null;
     let currentLagSeconds = 0;
     let pausedAtEmissionMs = null;
+    let pausedAudioCurrentTime = null;
+    let pendingResumeTargetTime = null;
     let scrubWindowSeconds = 7200;
     let activeStreamUrl = null;
     let watchdogTimer = null;
@@ -1279,7 +1323,7 @@
       lastRenderedProgramKey = "";
       programTitle.textContent = st.name;
       programHost.textContent = defaultSubtitle;
-      nextPill.style.display = "none";
+      nextPill.classList.remove("is-visible");
       setArtworkSafe(null, st.logo);
       syncMediaSession(st.name, defaultSubtitle);
     }
@@ -1297,7 +1341,7 @@
           lastRenderedProgramKey = fallbackKey;
           programTitle.textContent = st.name;
           programHost.textContent = defaultSubtitle;
-          nextPill.style.display = "none";
+          nextPill.classList.remove("is-visible");
           setArtworkSafe(null, st.logo);
           syncMediaSession(st.name, defaultSubtitle);
         }
@@ -1361,9 +1405,9 @@
       programHost.textContent = chosen.host;
       if (visibleNext) {
         nextPill.textContent = visibleNext;
-        nextPill.style.display = "inline-block";
+        nextPill.classList.add("is-visible");
       } else {
-        nextPill.style.display = "none";
+        nextPill.classList.remove("is-visible");
       }
       setArtworkSafe(chosen.artwork, st.logo);
       syncMediaSession(chosen.title, chosen.host || st.name);
@@ -1593,6 +1637,19 @@
       }
     }
 
+    function restorePausedPositionIfNeeded() {
+      if (pendingResumeTargetTime === null || !isTimeshiftSupported()) return;
+      const target = pendingResumeTargetTime;
+      const range = getSeekableRange();
+      if (range && target > 0) {
+        const clampedTarget = Math.max(range.start, Math.min(getSafeLiveTarget(range), target));
+        if (Math.abs(audio.currentTime - clampedTarget) > 1.5) {
+          try { audio.currentTime = clampedTarget; } catch (e) {}
+        }
+      }
+      pendingResumeTargetTime = null;
+    }
+
     async function startPlayback(forceReload = false) {
       const baseUrl = getStreamUrl();
       statusMsg.textContent = "";
@@ -1600,10 +1657,16 @@
       manualPauseRequested = false;
       wasInterruptedExternally = false;
 
-      // Si ja tenim el mateix flux carregat i no és una reconnexió forçada, reprenem al punt exacte
-      if (!forceReload && activeStreamUrl === baseUrl && audio.src) {
+      // Si ja tenim el mateix flux carregat i no és una reconnexió forçada, reprenem al punt exacte on s'havia pausat
+      if (!forceReload && activeStreamUrl === baseUrl && (audio.src || hlsInstance)) {
+        pendingResumeTargetTime = pausedAudioCurrentTime;
         try {
+          if (hlsInstance) {
+            try { hlsInstance.startLoad(); } catch (e) {}
+          }
           await audio.play();
+          restorePausedPositionIfNeeded();
+          pausedAudioCurrentTime = null;
           setPlayingState(true);
           return;
         } catch (err) {}
@@ -1612,6 +1675,8 @@
       setLoading(true);
       currentLagSeconds = 0;
       pausedAtEmissionMs = null;
+      pausedAudioCurrentTime = null;
+      pendingResumeTargetTime = null;
       peakMediaMinusWall = null;
       initialLiveCushionApplied = false;
       streamLoadTimestamp = Date.now();
@@ -1636,13 +1701,13 @@
 
       const isNativeHls = audio.canPlayType("application/vnd.apple.mpegurl") !== "";
 
-      // Prioritzem Hls.js (ManagedMediaSource a iOS 17.1+ / MSE) perquè permet controlar el volum progressiu amb WebAudio GainNode a iOS
+      // Prioritzem Hls.js (ManagedMediaSource a iOS 17.1+ / MSE) sense liveMaxLatencyDurationCount perquè mai salti sol al directe en reprendre de pausa
       if (window.Hls && Hls.isSupported()) {
         hlsInstance = new Hls({
           backBufferLength: 7200,
           maxBufferLength: 600,
           liveSyncDurationCount: 4,
-          liveMaxLatencyDurationCount: 8
+          liveMaxLatencyDurationCount: Infinity
         });
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(audio);
@@ -1726,6 +1791,9 @@
       if (isPlaying && pausedAtEmissionMs === null) {
         pausedAtEmissionMs = Date.now() - ((STREAM_DELAY_SECONDS + currentLagSeconds) * 1000);
       }
+      if (audio.currentTime > 0) {
+        pausedAudioCurrentTime = audio.currentTime;
+      }
       userWantedPlaying = false;
       manualPauseRequested = true;
       wasInterruptedExternally = false;
@@ -1741,11 +1809,7 @@
         userWantedPlaying = true;
         manualPauseRequested = false;
         wasInterruptedExternally = false;
-        if (audio.src) {
-          audio.play().then(() => setPlayingState(true)).catch(() => startPlayback(false));
-        } else {
-          startPlayback(false);
-        }
+        startPlayback(false);
       });
 
       navigator.mediaSession.setActionHandler("pause", () => {
@@ -1826,6 +1890,9 @@
       if (pausedAtEmissionMs === null) {
         pausedAtEmissionMs = Date.now() - ((STREAM_DELAY_SECONDS + currentLagSeconds) * 1000);
       }
+      if (audio.currentTime > 0) {
+        pausedAudioCurrentTime = audio.currentTime;
+      }
       if (!manualPauseRequested && userWantedPlaying) {
         // Interrupció externa d'iOS (ex. àudio de WhatsApp o trucada): guardem el segon exacte per reprendre quan acabi
         wasInterruptedExternally = true;
@@ -1837,6 +1904,7 @@
       setLoading(false);
       wasInterruptedExternally = false;
       statusMsg.textContent = "";
+      restorePausedPositionIfNeeded();
       applyInitialLiveCushionIfNeeded();
     });
     audio.addEventListener("timeupdate", () => {
@@ -1969,7 +2037,7 @@
       isScrubbing = true;
       updateArtworkScale();
       scrubWindowSeconds = getDvrWindowSeconds(getSeekableRange());
-      nextPill.style.display = "none";
+      nextPill.classList.remove("is-visible");
       if (lagBubbleHideTimer) {
         clearTimeout(lagBubbleHideTimer);
         lagBubbleHideTimer = null;
