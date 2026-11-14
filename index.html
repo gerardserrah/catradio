@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="CatRàdio" />
-  <meta name="theme-color" content="#FFD100" id="themeColorMeta" />
+  <meta name="theme-color" content="#0a0a0a" id="themeColorMeta" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/icona-catradio.png" />
   <title>CatRàdio Directe</title>
@@ -480,13 +480,13 @@
       left: 0;
       right: 0;
       z-index: 9999;
-      background-color: #FFD100;
+      background-color: #0a0a0a;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
       pointer-events: all;
-      transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.35s;
+      transition: opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.32s;
     }
 
     .splash-screen.splash-hide {
@@ -504,19 +504,19 @@
 
     .splash-bolt .bolt-left,
     .splash-bolt .bolt-right {
-      fill: #FFFFFF;
-      stroke: #FFFFFF;
+      fill: #FFD100;
+      stroke: #FFD100;
       stroke-width: 0.45px;
       stroke-linejoin: miter;
       will-change: transform;
     }
 
     .splash-bolt .bolt-left {
-      animation: slideDiagonalFromBottomLeft 0.85s cubic-bezier(0.05, 0.9, 0.1, 1) forwards;
+      animation: slideDiagonalFromBottomLeft 0.72s cubic-bezier(0.01, 0.99, 0.04, 1) forwards;
     }
 
     .splash-bolt .bolt-right {
-      animation: slideDiagonalFromTopRight 0.85s cubic-bezier(0.05, 0.9, 0.1, 1) forwards;
+      animation: slideDiagonalFromTopRight 0.72s cubic-bezier(0.01, 0.99, 0.04, 1) forwards;
     }
 
     @keyframes slideDiagonalFromBottomLeft {
@@ -1243,15 +1243,13 @@
     fetchLiveProgramMetadata();
     updateDvrClockUI();
 
-    // Amaga la pantalla d'inici (splash screen) amb més marge i restaura el theme-color fosc
+    // Amaga la pantalla d'inici (splash screen)
     const splashScreen = document.getElementById("splashScreen");
-    const themeColorMeta = document.getElementById("themeColorMeta");
     if (splashScreen) {
       setTimeout(() => {
-        if (themeColorMeta) themeColorMeta.setAttribute("content", "#0a0a0a");
         splashScreen.classList.add("splash-hide");
-        setTimeout(() => splashScreen.remove(), 400);
-      }, 1500);
+        setTimeout(() => splashScreen.remove(), 350);
+      }, 1250);
     }
 
     clockTimer = setInterval(updateDvrClockUI, 1000);
