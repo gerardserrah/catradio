@@ -69,6 +69,39 @@ export default async function handler(req, res) {
       .trim();
   }
 
+  const NON_SQUARE_META_RE =
+    /LOGO|169|16_9|16X9|1920X1080|1280X720|POSTER|CARTELL|VERTICAL|288X422|240X350|467X684|467684|320X466|1014X570|670X378|670X420|326X184|312X180|400X80|768X92|1980X200|141X51|128X96|IPTV|BRAVIA|ARAFEM|4COL|8COL|12COL/i;
+
+  function isDimensionNonSquare(midaStr) {
+    const m = String(midaStr || "").match(/(\d{2,4})\s*[xX]\s*(\d{2,4})/);
+    if (!m) return false;
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    return w > 0 && h > 0 && Math.abs(w - h) > 4;
+  }
+
+  function collectNonSquareUrlsFromObject(obj, rejected = new Set(), depth = 0) {
+    if (!obj || typeof obj !== "object" || depth > 7) return rejected;
+    if (Array.isArray(obj)) {
+      for (const item of obj) collectNonSquareUrlsFromObject(item, rejected, depth + 1);
+      return rejected;
+    }
+
+    const rawUrl = obj.url || obj.src || obj.text || obj.imatge;
+    if (typeof rawUrl === "string") {
+      const u = normalizeImg(rawUrl);
+      const meta = `${obj.rel_name || ""} ${obj.mida || ""} ${obj.titol || ""} ${obj.alt || ""}`;
+      if (u && (NON_SQUARE_META_RE.test(meta) || isDimensionNonSquare(obj.mida) || isDimensionNonSquare(obj.titol))) {
+        rejected.add(u);
+      }
+    }
+
+    for (const k of Object.keys(obj)) {
+      collectNonSquareUrlsFromObject(obj[k], rejected, depth + 1);
+    }
+    return rejected;
+  }
+
   // Busca dins d'un objecte JSON la portada quadrada oficial del programa (prioritzant IMG_PODCAST i 1400x1400, i descartant IMG_LOGO / IMATGE_169 / IMG_POSTER)
   function findSquareImageInObject(obj, depth = 0) {
     if (!obj || typeof obj !== "object" || depth > 6) return null;
@@ -79,9 +112,22 @@ export default async function handler(req, res) {
           .map((it) => ({
             url: normalizeImg(it?.url || it?.src || it?.text || it?.imatge),
             mida: String(it?.mida || it?.relacio || it?.ratio || "").toUpperCase(),
-            rel: String(it?.rel_name || "").toUpperCase()
+            rel: String(it?.rel_name || "").toUpperCase(),
+            titol: String(it?.titol || it?.alt || "")
           }))
-          .filter((it) => it.url && !/LOGO|169|16_9|16X9|POSTER|CARTELL|VERTICAL/.test(it.rel));
+          .filter(
+            (it) =>
+              it.url &&
+              !NON_SQUARE_META_RE.test(`${it.rel} ${it.mida} ${it.titol}`) &&
+              !isDimensionNonSquare(it.mida) &&
+              !isDimensionNonSquare(it.titol)
+          );
+
+        const podcastWithLogo = validItems.find((it) => it.rel === "IMG_PODCAST" && !/nologo|senselogo/i.test(it.titol));
+        if (podcastWithLogo) return podcastWithLogo.url;
+
+        const sq1400WithLogo = validItems.find((it) => it.mida === "1400X1400" && !/nologo|senselogo/i.test(it.titol));
+        if (sq1400WithLogo) return sq1400WithLogo.url;
 
         const podcastCover = validItems.find((it) => it.rel === "IMG_PODCAST");
         if (podcastCover) return podcastCover.url;
@@ -125,13 +171,19 @@ export default async function handler(req, res) {
 
     // Comprovació per dimensions (amplada === alcada) o proporció ("1:1" / "1x1")
     const relName = String(obj.rel_name || "").toUpperCase();
-    if (/LOGO|169|16_9|16X9|POSTER|CARTELL|VERTICAL/.test(relName)) {
+    const titolMeta = String(obj.titol || obj.alt || "");
+    const midaMeta = String(obj.mida || obj.relacio || obj.ratio || "");
+    if (
+      NON_SQUARE_META_RE.test(`${relName} ${midaMeta} ${titolMeta}`) ||
+      isDimensionNonSquare(midaMeta) ||
+      isDimensionNonSquare(titolMeta)
+    ) {
       return null;
     }
 
     const w = Number(obj.amplada || obj.width || obj.w || 0);
     const h = Number(obj.alcada || obj.height || obj.h || 0);
-    const ratio = String(obj.relacio || obj.ratio || obj.aspect || obj.mida || "").toLowerCase();
+    const ratio = midaMeta.toLowerCase();
     const rawUrl = obj.url || obj.src || obj.text || obj.imatge;
 
     if (typeof rawUrl === "string") {
@@ -164,28 +216,38 @@ export default async function handler(req, res) {
     if (objContext) {
       const exactSquare = findSquareImageInObject(objContext);
       if (exactSquare) return exactSquare;
+
+      const ctxStr = JSON.stringify(objContext);
+      if (/not[ií]cies\s*3catinfo/i.test(ctxStr)) {
+        return "/catinfo_cover.png";
+      }
     }
 
     if (!textChunk) return null;
+    if (/not[ií]cies\s*3catinfo/i.test(textChunk)) {
+      return "/catinfo_cover.png";
+    }
+
     const matches = textChunk.match(/(?:https?:\/\/img\.3cat\.cat)?\/multimedia\/[^"'\s\\<>]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s\\<>]*)?/gi);
     if (!matches || matches.length === 0) return null;
 
-    const valid = [...new Set(matches.map(normalizeImg).filter(Boolean))];
+    const rejected = objContext ? collectNonSquareUrlsFromObject(objContext) : new Set();
+    const valid = [...new Set(matches.map(normalizeImg).filter((u) => u && !rejected.has(u)))];
     if (valid.length === 0) return null;
 
     // 1. Etiqueta quadrada explícita
-    const square = valid.find((u) => /1x1|1_1|quadra|square|cover|200x200|300x300|400x400|500x500|512x512|600x600|800x800/i.test(u));
+    const square = valid.find((u) => /1x1|1_1|quadra|square|cover|1400x1400|200x200|300x300|400x400|500x500|512x512|600x600|800x800/i.test(u));
     if (square) return square;
 
     // 2. Descartem tant les panoràmiques (16:9) com les verticals (poster / 2:3 / 9:16)
     const squareCandidates = valid.filter(
-      (u) => !/16x9|16_9|panoramic|horitzontal|wide|1920x1080|1280x720|vertical|portrait|poster|cartell|2x3|2_3|3x4|3_4|9x16|9_16|1080x1920|720x1280/i.test(u)
+      (u) => !/16x9|16_9|panoramic|horitzontal|wide|1920x1080|1280x720|vertical|portrait|poster|cartell|288x422|240x350|467x684|2x3|2_3|3x4|3_4|9x16|9_16|1080x1920|720x1280/i.test(u)
     );
     if (squareCandidates.length > 0) {
       return squareCandidates[0];
     }
 
-    return valid[0];
+    return null;
   }
 
   function detectChannelKey(obj) {
@@ -296,7 +358,7 @@ export default async function handler(req, res) {
         result[chKey] = {
           title: cleanTitle,
           host: cleanHost,
-          artwork: artwork || null,
+          artwork: artwork || (chKey === "catinfo" ? "/catinfo_cover.png" : null),
           next: nextText,
           startMs: startMs || null,
           endMs: endMs || null,
