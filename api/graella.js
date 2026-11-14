@@ -1,3 +1,74 @@
+const icatSongHistory = [
+  {
+    title: "Company (Feat. Chlöe, Omah Lay)",
+    artist: "Clean Bandit",
+    artwork: "https://statics.3cat.cat/multimedia/galaxy/6/6/7GX15190166.jpg",
+    startTime: "2026-11-14T18:17:36+01:00",
+    endTime: "2026-11-14T18:20:26+01:00",
+    startMs: 1731604656000,
+    endMs: 1731604826000
+  },
+  {
+    title: "What's Done Is Done",
+    artist: "Jorja Smith",
+    artwork: "https://statics.3cat.cat/multimedia/galaxy/5/2/7GX15120925.jpg",
+    startTime: "2026-11-14T18:20:26+01:00",
+    endTime: "2026-11-14T18:23:11+01:00",
+    startMs: 1731604826000,
+    endMs: 1731604991000
+  },
+  {
+    title: "Rocafort",
+    artist: "Balena",
+    artwork: "https://statics.3cat.cat/multimedia/galaxy/4/8/7GX15331284.jpg",
+    startTime: "2026-11-14T18:27:00+01:00",
+    endTime: "2026-11-14T18:31:00+01:00",
+    startMs: 1731605220000,
+    endMs: 1731605460000
+  },
+  {
+    title: "Eat Me Better",
+    artist: "Nimino",
+    artwork: "https://statics.3cat.cat/multimedia/galaxy/6/8/7GX15286586.jpg",
+    startTime: "2026-11-14T18:35:54+01:00",
+    endTime: "2026-11-14T18:38:59+01:00",
+    startMs: 1731605754000,
+    endMs: 1731605939000
+  },
+  {
+    title: "Heartless Romance",
+    artist: "Thera",
+    artwork: "https://statics.3cat.cat/multimedia/galaxy/6/9/7GX15343296.jpg",
+    startTime: "2026-11-14T18:38:59+01:00",
+    endTime: "2026-11-14T18:41:49+01:00",
+    startMs: 1731605939000,
+    endMs: 1731606109000
+  }
+];
+
+function recordSong(item) {
+  if (!item || !item.title) return;
+  const itemStart = item.startMs || (item.startTime ? Date.parse(item.startTime) : null);
+  const idx = icatSongHistory.findIndex((s) => {
+    if (s.title.toLowerCase() !== item.title.toLowerCase()) return false;
+    if (itemStart && s.startMs) {
+      return Math.abs(s.startMs - itemStart) < 30000;
+    }
+    return true;
+  });
+  if (idx !== -1) {
+    icatSongHistory[idx] = { ...icatSongHistory[idx], ...item };
+  } else {
+    icatSongHistory.push({
+      ...item,
+      startMs: itemStart,
+      endMs: item.endMs || (item.endTime ? Date.parse(item.endTime) : (itemStart ? itemStart + 180000 : null))
+    });
+    icatSongHistory.sort((a, b) => (a.startMs || 0) - (b.startMs || 0));
+    if (icatSongHistory.length > 80) icatSongHistory.shift();
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=25, stale-while-revalidate=50");
@@ -719,16 +790,41 @@ export default async function handler(req, res) {
           const arasona = araFem.arasona;
           if (arasona && arasona.titol && typeof arasona.titol === "string" && arasona.titol.trim()) {
             const rawImg = (Array.isArray(arasona.imatges) && arasona.imatges[0] && arasona.imatges[0].text) || null;
-            channels.icat.song = {
+            const startMs = arasona.start_time ? Date.parse(arasona.start_time) : null;
+            const endMs = arasona.end_time ? Date.parse(arasona.end_time) : null;
+            const currentSong = {
               title: decodeHtmlEntities(arasona.titol.trim()),
               artist: arasona.artista ? decodeHtmlEntities(String(arasona.artista).trim()) : "",
               artwork: rawImg ? normalizeImg(rawImg) : null,
               startTime: arasona.start_time || null,
-              endTime: arasona.end_time || null
+              endTime: arasona.end_time || null,
+              startMs: isNaN(startMs) ? null : startMs,
+              endMs: isNaN(endMs) ? null : endMs
             };
+            channels.icat.song = currentSong;
+            recordSong(currentSong);
           } else {
             channels.icat.song = null;
           }
+
+          const despressona = araFem.despressona;
+          if (despressona && despressona.titol && typeof despressona.titol === "string" && despressona.titol.trim()) {
+            const rawImgNext = (Array.isArray(despressona.imatges) && despressona.imatges[0] && despressona.imatges[0].text) || null;
+            const startMsNext = despressona.start_time ? Date.parse(despressona.start_time) : null;
+            const endMsNext = despressona.end_time ? Date.parse(despressona.end_time) : null;
+            const nextSong = {
+              title: decodeHtmlEntities(despressona.titol.trim()),
+              artist: despressona.artista ? decodeHtmlEntities(String(despressona.artista).trim()) : "",
+              artwork: rawImgNext ? normalizeImg(rawImgNext) : null,
+              startTime: despressona.start_time || null,
+              endTime: despressona.end_time || null,
+              startMs: isNaN(startMsNext) ? null : startMsNext,
+              endMs: isNaN(endMsNext) ? null : endMsNext
+            };
+            recordSong(nextSong);
+          }
+
+          channels.icat.songs = icatSongHistory;
         }
       } catch (err) {
         debugLog.push({ icatWsaError: err.message });

@@ -207,6 +207,14 @@
         transform: scale(0.88) !important;
       }
 
+      .program-meta-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        min-height: 40px !important;
+      }
+
       .program-title {
         font-size: 16px !important;
         margin-bottom: 2px !important;
@@ -299,6 +307,14 @@
         height: min(150px, 42vh) !important;
         margin-bottom: 4px !important;
       }
+      .program-meta-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        min-height: 40px !important;
+      }
+
       .program-title {
         font-size: 14px !important;
       }
@@ -516,6 +532,14 @@
       height: 58%;
       object-fit: contain;
       filter: brightness(0) invert(1) opacity(0.35);
+    }
+
+    .program-meta-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      min-height: 68px;
     }
 
     .program-title {
@@ -1051,10 +1075,12 @@
       <div class="artwork-wrapper is-shrunk" id="artworkWrapper">
         <img id="artwork" class="artwork is-logo-fallback" src="https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg" alt="Programa" />
       </div>
-      <h1 class="program-title" id="programTitle">Catalunya Ràdio</h1>
-      <p class="program-host" id="programHost">Connexió territorial: Girona</p>
-      <p class="program-context" id="programContext"></p>
-      <div class="next-pill" id="nextPill"></div>
+      <div class="program-meta-box">
+        <h1 class="program-title" id="programTitle">Catalunya Ràdio</h1>
+        <p class="program-host" id="programHost">Connexió territorial: Girona</p>
+        <p class="program-context" id="programContext"></p>
+        <div class="next-pill" id="nextPill"></div>
+      </div>
     </div>
 
     <!-- Controls de reproducció i Timeshift -->
@@ -1358,6 +1384,96 @@
       return trimmed;
     }
 
+    let icatSongHistory = [
+      {
+        title: "Company (Feat. Chlöe, Omah Lay)",
+        artist: "Clean Bandit",
+        artwork: "https://statics.3cat.cat/multimedia/galaxy/6/6/7GX15190166.jpg",
+        startTime: "2026-11-14T18:17:36+01:00",
+        endTime: "2026-11-14T18:20:26+01:00",
+        startMs: 1731604656000,
+        endMs: 1731604826000
+      },
+      {
+        title: "What's Done Is Done",
+        artist: "Jorja Smith",
+        artwork: "https://statics.3cat.cat/multimedia/galaxy/5/2/7GX15120925.jpg",
+        startTime: "2026-11-14T18:20:26+01:00",
+        endTime: "2026-11-14T18:23:11+01:00",
+        startMs: 1731604826000,
+        endMs: 1731604991000
+      },
+      {
+        title: "Rocafort",
+        artist: "Balena",
+        artwork: "https://statics.3cat.cat/multimedia/galaxy/4/8/7GX15331284.jpg",
+        startTime: "2026-11-14T18:27:00+01:00",
+        endTime: "2026-11-14T18:31:00+01:00",
+        startMs: 1731605220000,
+        endMs: 1731605460000
+      },
+      {
+        title: "Eat Me Better",
+        artist: "Nimino",
+        artwork: "https://statics.3cat.cat/multimedia/galaxy/6/8/7GX15286586.jpg",
+        startTime: "2026-11-14T18:35:54+01:00",
+        endTime: "2026-11-14T18:38:59+01:00",
+        startMs: 1731605754000,
+        endMs: 1731605939000
+      },
+      {
+        title: "Heartless Romance",
+        artist: "Thera",
+        artwork: "https://statics.3cat.cat/multimedia/galaxy/6/9/7GX15343296.jpg",
+        startTime: "2026-11-14T18:38:59+01:00",
+        endTime: "2026-11-14T18:41:49+01:00",
+        startMs: 1731605939000,
+        endMs: 1731606109000
+      }
+    ];
+
+    try {
+      const cachedSongs = localStorage.getItem("catradio_icat_songs_history");
+      if (cachedSongs) {
+        const parsed = JSON.parse(cachedSongs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed.forEach((s) => {
+            if (!icatSongHistory.some((ex) => ex.title.toLowerCase() === s.title.toLowerCase() && Math.abs((ex.startMs || 0) - (s.startMs || 0)) < 30000)) {
+              icatSongHistory.push(s);
+            }
+          });
+          icatSongHistory.sort((a, b) => (a.startMs || 0) - (b.startMs || 0));
+        }
+      }
+    } catch (e) {}
+
+    function recordIcatSong(songObj) {
+      if (!songObj || !songObj.title) return;
+      const sTitle = songObj.title.trim().toLowerCase();
+      const sStart = songObj.startMs || (songObj.startTime ? Date.parse(songObj.startTime) : null);
+      const sEnd = songObj.endMs || (songObj.endTime ? Date.parse(songObj.endTime) : (sStart ? sStart + 180000 : null));
+      const normalized = {
+        ...songObj,
+        startMs: isNaN(sStart) ? null : sStart,
+        endMs: isNaN(sEnd) ? null : sEnd
+      };
+      const idx = icatSongHistory.findIndex((s) => {
+        if (s.title.trim().toLowerCase() !== sTitle) return false;
+        if (sStart && s.startMs) return Math.abs(s.startMs - sStart) < 30000;
+        return true;
+      });
+      if (idx !== -1) {
+        icatSongHistory[idx] = { ...icatSongHistory[idx], ...normalized };
+      } else {
+        icatSongHistory.push(normalized);
+        icatSongHistory.sort((a, b) => (a.startMs || 0) - (b.startMs || 0));
+        if (icatSongHistory.length > 80) icatSongHistory.shift();
+      }
+      try {
+        localStorage.setItem("catradio_icat_songs_history", JSON.stringify(icatSongHistory.slice(-50)));
+      } catch (e) {}
+    }
+
     let icatPollTimer = null;
 
     async function fetchIcatNowPlaying() {
@@ -1401,15 +1517,41 @@
           if (rawImg && rawImg.includes("statics.ccma.cat")) {
             rawImg = rawImg.replace("statics.ccma.cat", "statics.3cat.cat");
           }
-          allChannelsData.icat.song = {
+          const startMs = arasona.start_time ? Date.parse(arasona.start_time) : null;
+          const endMs = arasona.end_time ? Date.parse(arasona.end_time) : null;
+          const currentSong = {
             title: arasona.titol.trim(),
             artist: (arasona.artista || "").trim(),
             artwork: rawImg || null,
             startTime: arasona.start_time || null,
-            endTime: arasona.end_time || null
+            endTime: arasona.end_time || null,
+            startMs: isNaN(startMs) ? null : startMs,
+            endMs: isNaN(endMs) ? null : endMs
           };
+          allChannelsData.icat.song = currentSong;
+          recordIcatSong(currentSong);
         } else {
           allChannelsData.icat.song = null;
+        }
+
+        const despres = araFem.despressona;
+        if (despres && despres.titol && typeof despres.titol === "string" && despres.titol.trim()) {
+          let rawImgNext = (Array.isArray(despres.imatges) && despres.imatges[0] && despres.imatges[0].text) || null;
+          if (rawImgNext && rawImgNext.includes("statics.ccma.cat")) {
+            rawImgNext = rawImgNext.replace("statics.ccma.cat", "statics.3cat.cat");
+          }
+          const startMsNext = despres.start_time ? Date.parse(despres.start_time) : null;
+          const endMsNext = despres.end_time ? Date.parse(despres.end_time) : null;
+          const nextSong = {
+            title: despres.titol.trim(),
+            artist: (despres.artista || "").trim(),
+            artwork: rawImgNext || null,
+            startTime: despres.start_time || null,
+            endTime: despres.end_time || null,
+            startMs: isNaN(startMsNext) ? null : startMsNext,
+            endMs: isNaN(endMsNext) ? null : endMsNext
+          };
+          recordIcatSong(nextSong);
         }
 
         if (currentStation === "icat") {
@@ -1473,6 +1615,9 @@
           const data = await res.json();
           if (data?.channels && typeof data.channels === "object") {
             allChannelsData = data.channels;
+            if (Array.isArray(allChannelsData.icat?.songs)) {
+              allChannelsData.icat.songs.forEach(recordIcatSong);
+            }
           }
           const info = allChannelsData?.[currentStation];
           if (info && info.title) {
@@ -1535,16 +1680,53 @@
       const liveRemainingMs = liveChannelData.endMs ? (liveChannelData.endMs - emissionTimestampMs) : null;
       const showLiveNext = liveRemainingMs !== null && liveRemainingMs > 0 && liveRemainingMs <= TWENTY_MIN_MS;
 
-      const isSongAvailable = currentStation === "icat" && liveChannelData.song && liveChannelData.song.title;
+      const isIcat = currentStation === "icat";
       const currentProgramName = liveChannelData.programTitle || liveChannelData.title || st.name;
-      const isSongApplicable = isSongAvailable && !isHistorical;
+
+      // Determinació de la cançó segons si és directe o un instant anterior (timeshift)
+      let songForEmission = null;
+      if (isIcat) {
+        if (!isHistorical && liveChannelData.song && liveChannelData.song.title) {
+          songForEmission = liveChannelData.song;
+        } else if (Array.isArray(icatSongHistory) && icatSongHistory.length > 0) {
+          // Busquem si hi ha alguna cançó que coincidís amb l'instant d'emissió
+          const match = icatSongHistory.find((s) => {
+            const start = s.startMs || (s.startTime ? Date.parse(s.startTime) : null);
+            const end = s.endMs || (s.endTime ? Date.parse(s.endTime) : (start ? start + 180000 : null));
+            if (!start || !end) return false;
+            return emissionTimestampMs >= (start - 8000) && emissionTimestampMs <= (end + 8000);
+          });
+          if (match) {
+            songForEmission = match;
+          } else if (isHistorical) {
+            // Cançó més propera dins de 3.5 minuts si estem en timeshift
+            let closest = null;
+            let minDiff = Infinity;
+            for (const s of icatSongHistory) {
+              const start = s.startMs || (s.startTime ? Date.parse(s.startTime) : null);
+              const end = s.endMs || (s.endTime ? Date.parse(s.endTime) : (start ? start + 180000 : null));
+              if (!start) continue;
+              const mid = (start + (end || start + 180000)) / 2;
+              const diff = Math.abs(emissionTimestampMs - mid);
+              const dur = end ? (end - start) : 180000;
+              if (diff < (dur / 2 + 50000) && diff < minDiff) {
+                minDiff = diff;
+                closest = s;
+              }
+            }
+            if (closest) songForEmission = closest;
+          }
+        }
+      }
+
+      const isSongPresent = Boolean(songForEmission && songForEmission.title);
 
       let chosen = {
-        title: isSongApplicable ? formatSongText(liveChannelData.song.title) : liveChannelData.title,
-        host: isSongApplicable ? formatSongText(liveChannelData.song.artist || currentProgramName) : (liveChannelData.host || defaultSubtitle),
-        artwork: isSongApplicable ? (liveChannelData.song.artwork || liveChannelData.artwork) : liveChannelData.artwork,
+        title: isSongPresent ? formatSongText(songForEmission.title) : liveChannelData.title,
+        host: isSongPresent ? formatSongText(songForEmission.artist || currentProgramName) : (liveChannelData.host || defaultSubtitle),
+        artwork: isSongPresent ? (songForEmission.artwork || liveChannelData.artwork) : liveChannelData.artwork,
         next: showLiveNext ? (liveChannelData.next || "") : "",
-        programContext: isSongApplicable ? currentProgramName : ""
+        programContext: isSongPresent ? currentProgramName : ""
       };
 
       // Cerquem a la graella horària quin programa s'emetia en l'instant d'emissió (tant en directe com tirant enrere)
@@ -1574,11 +1756,11 @@
             (slot.title && liveChannelData.title && slot.title.trim().toLowerCase() === liveChannelData.title.trim().toLowerCase());
 
           chosen = {
-            title: isSongApplicable ? formatSongText(liveChannelData.song.title) : (isSameAsLive ? (liveChannelData.title || slot.title) : slot.title),
-            host: isSongApplicable ? formatSongText(liveChannelData.song.artist || currentProgramName) : ((isSameAsLive ? (liveChannelData.host || slot.host) : (slot.host || "")) || defaultSubtitle),
-            artwork: isSongApplicable ? (liveChannelData.song.artwork || slot.artwork || liveChannelData.artwork) : (isSameAsLive ? (liveChannelData.artwork || slot.artwork) : (slot.artwork || liveChannelData.artwork)),
+            title: isSongPresent ? formatSongText(songForEmission.title) : (isSameAsLive ? (liveChannelData.title || slot.title) : slot.title),
+            host: isSongPresent ? formatSongText(songForEmission.artist || currentProgramName) : ((isSameAsLive ? (liveChannelData.host || slot.host) : (slot.host || "")) || defaultSubtitle),
+            artwork: isSongPresent ? (songForEmission.artwork || slot.artwork || liveChannelData.artwork) : (isSameAsLive ? (liveChannelData.artwork || slot.artwork) : (slot.artwork || liveChannelData.artwork)),
             next: isWithin20Min ? candidateNext : "",
-            programContext: isSongApplicable ? currentProgramName : ""
+            programContext: isSongPresent ? currentProgramName : ""
           };
         }
       }
@@ -1588,9 +1770,9 @@
       const isStationDragging = Boolean(stationDragState);
       const visibleNext = (isPlaying && !isScrubbing && !isStationDragging && !isSwitchingStation) ? chosen.next : "";
 
-      // El programa sota la cançó només apareix quan estem escoltant de forma estable i NO s'està desplaçant entre emissores (per evitar desplaçar la miniatura)
-      const visibleProgramContext = (chosen.programContext && !isStationDragging && !isSwitchingStation && !isScrubbing)
-        ? `Programa: ${chosen.programContext}`
+      // El programa sota la cançó es mostra sempre que hi hagi context i no s'estigui arrossegant el selector d'emissores
+      const visibleProgramContext = (chosen.programContext && !isStationDragging)
+        ? chosen.programContext
         : "";
 
       const renderKey = `${currentStation}|${chosen.title}|${chosen.host}|${chosen.artwork}|${visibleNext}|${visibleProgramContext}`;
