@@ -197,14 +197,14 @@
       }
 
       .artwork-wrapper {
-        width: min(175px, 42vh) !important;
-        height: min(175px, 42vh) !important;
+        width: min(195px, 46vh) !important;
+        height: min(195px, 46vh) !important;
         margin-bottom: 8px !important;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
       }
 
       .artwork-wrapper.is-shrunk {
-        transform: scale(0.85) !important;
+        transform: scale(0.88) !important;
       }
 
       .program-title {
@@ -291,16 +291,12 @@
         width: 32px !important;
         height: 28px !important;
       }
-
-      .airplay-row {
-        margin-top: 2px !important;
-      }
     }
 
     @media (orientation: landscape) and (max-height: 380px) {
       .artwork-wrapper {
-        width: min(135px, 38vh) !important;
-        height: min(135px, 38vh) !important;
+        width: min(150px, 42vh) !important;
+        height: min(150px, 42vh) !important;
         margin-bottom: 4px !important;
       }
       .program-title {
@@ -485,12 +481,12 @@
     .artwork-wrapper {
       position: relative;
       z-index: 1;
-      width: min(252px, 62vw);
-      height: min(252px, 62vw);
-      border-radius: 10px;
+      width: min(300px, 76vw, 38vh);
+      height: min(300px, 76vw, 38vh);
+      border-radius: 14px;
       background: #121212;
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
-      margin-bottom: 16px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+      margin-bottom: 14px;
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -503,8 +499,8 @@
     }
 
     .artwork-wrapper.is-shrunk {
-      transform: scale(0.84);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+      transform: scale(0.88);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
     }
 
     .artwork {
@@ -919,39 +915,6 @@
       transition: color 0.3s ease;
     }
 
-    /* Fila inferior d'AirPlay */
-    .airplay-row {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      margin-top: 10px;
-      margin-bottom: 2px;
-    }
-
-    .airplay-btn {
-      background: transparent;
-      border: none;
-      color: #9ca3af;
-      padding: 6px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      flex-shrink: 0;
-      border-radius: 50%;
-      transition: transform 0.15s ease, color 0.2s ease, background 0.2s ease;
-    }
-
-    .airplay-btn:active {
-      transform: scale(0.92);
-      color: #ffffff;
-    }
-
-    .airplay-btn.is-active {
-      color: var(--accent-color);
-    }
-
     /* Peu amb reconnexió */
     .footer {
       display: flex;
@@ -1163,16 +1126,6 @@
         </button>
       </div>
 
-      <!-- Botó d'emissió AirPlay -->
-      <div class="airplay-row">
-        <button class="airplay-btn" id="airplayBtn" aria-label="Emetre per AirPlay" title="AirPlay">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"></path>
-            <polygon points="12 15 17 21 7 21 12 15" fill="currentColor"></polygon>
-          </svg>
-        </button>
-      </div>
-
       <div class="status-msg" id="statusMsg"></div>
     </div>
   </div>
@@ -1263,7 +1216,6 @@
     const hourJumpBtn = document.getElementById("hourJumpBtn");
     const hourJumpLabel = document.getElementById("hourJumpLabel");
     const scrubber = document.getElementById("scrubber");
-    const airplayBtn = document.getElementById("airplayBtn");
     const appShell = document.querySelector(".app-shell");
     const stationsGrid = document.getElementById("stationsGrid");
     const stationSliderPill = document.getElementById("stationSliderPill");
@@ -1378,18 +1330,96 @@
       return st.url;
     }
 
-    function syncMediaSession(title, artist) {
+    function syncMediaSession(title, artist, artworkUrl) {
       if (!("mediaSession" in navigator)) return;
-      const iconUrl = new URL("/catradio_player.jpg", window.location.origin).href;
+      const defaultIconUrl = new URL("/catradio_player.jpg", window.location.origin).href;
+      const art = artworkUrl || defaultIconUrl;
       navigator.mediaSession.metadata = new MediaMetadata({
         title: title,
         artist: artist,
-        album: "3Cat Directe",
+        album: currentStation === "icat" ? "iCat (3Cat)" : "3Cat Directe",
         artwork: [
-          { src: iconUrl, sizes: "512x512", type: "image/jpeg" },
-          { src: iconUrl, sizes: "1024x1024", type: "image/jpeg" }
+          { src: art, sizes: "512x512", type: "image/jpeg" },
+          { src: defaultIconUrl, sizes: "512x512", type: "image/jpeg" }
         ]
       });
+    }
+
+    function formatSongText(str) {
+      if (!str || typeof str !== "string") return "";
+      const trimmed = str.trim();
+      const letters = trimmed.replace(/[^a-zA-ZàèéíòóúçÀÈÉÍÒÓÚÇ]/g, "");
+      if (letters.length > 3) {
+        const uppercaseCount = (letters.match(/[A-ZÀÈÉÍÒÓÚÇ]/g) || []).length;
+        if (uppercaseCount / letters.length > 0.75) {
+          return trimmed.toLowerCase().replace(/(?:^|\s|\(|\[|-|\/)\S/g, (char) => char.toUpperCase());
+        }
+      }
+      return trimmed;
+    }
+
+    let icatPollTimer = null;
+
+    async function fetchIcatNowPlaying() {
+      if (currentStation !== "icat") return;
+      try {
+        const res = await fetch(`https://dinamics.3cat.cat/wsarafem/arafem/radio/ic/geo/cat?_=${Date.now()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const araFem = data?.canal?.ara_fem;
+        if (!araFem) return;
+
+        if (!allChannelsData.icat) {
+          allChannelsData.icat = {
+            id: "icat",
+            channel: "icat",
+            title: "iCat",
+            host: "iCat",
+            artwork: null
+          };
+        }
+
+        if (araFem.titol_programa) {
+          const prog = araFem.titol_programa.trim();
+          allChannelsData.icat.programTitle = prog;
+          if (!allChannelsData.icat.title || allChannelsData.icat.title === "iCat") {
+            allChannelsData.icat.title = prog;
+          }
+        }
+        if (araFem.presentador && (!allChannelsData.icat.host || allChannelsData.icat.host === "iCat")) {
+          allChannelsData.icat.host = araFem.presentador.trim();
+        }
+
+        if (!allChannelsData.icat.artwork && Array.isArray(araFem.imatges)) {
+          const square = araFem.imatges.find((im) => im.mida === "314x314" || im.mida === "300x300");
+          if (square?.text) allChannelsData.icat.artwork = square.text;
+        }
+
+        const arasona = araFem.arasona;
+        if (arasona && arasona.titol && typeof arasona.titol === "string" && arasona.titol.trim()) {
+          let rawImg = (Array.isArray(arasona.imatges) && arasona.imatges[0] && arasona.imatges[0].text) || null;
+          if (rawImg && rawImg.includes("statics.ccma.cat")) {
+            rawImg = rawImg.replace("statics.ccma.cat", "statics.3cat.cat");
+          }
+          allChannelsData.icat.song = {
+            title: arasona.titol.trim(),
+            artist: (arasona.artista || "").trim(),
+            artwork: rawImg || null,
+            startTime: arasona.start_time || null,
+            endTime: arasona.end_time || null
+          };
+        } else {
+          allChannelsData.icat.song = null;
+        }
+
+        if (currentStation === "icat") {
+          liveChannelData = allChannelsData.icat;
+          lastRenderedProgramKey = "";
+          updateDvrClockUI();
+        }
+      } catch (e) {
+        // Fallback silenciat (es cobreix amb /api/graella)
+      }
     }
 
     function setArtworkSafe(url, fallbackLogo) {
@@ -1432,6 +1462,10 @@
       const defaultSubtitle = currentStation === "catradio"
         ? `Connexió territorial: ${terrName}`
         : "Emissió en directe";
+
+      if (currentStation === "icat") {
+        fetchIcatNowPlaying();
+      }
 
       try {
         const res = await fetch(`/api/graella?t=${Date.now()}`, { cache: "no-store" });
@@ -1503,13 +1537,14 @@
 
       const isSongAvailable = currentStation === "icat" && liveChannelData.song && liveChannelData.song.title;
       const currentProgramName = liveChannelData.programTitle || liveChannelData.title || st.name;
+      const isSongApplicable = isSongAvailable && !isHistorical;
 
       let chosen = {
-        title: isSongAvailable ? liveChannelData.song.title : liveChannelData.title,
-        host: isSongAvailable ? (liveChannelData.song.artist || currentProgramName) : (liveChannelData.host || defaultSubtitle),
-        artwork: isSongAvailable ? (liveChannelData.song.artwork || liveChannelData.artwork) : liveChannelData.artwork,
+        title: isSongApplicable ? formatSongText(liveChannelData.song.title) : liveChannelData.title,
+        host: isSongApplicable ? formatSongText(liveChannelData.song.artist || currentProgramName) : (liveChannelData.host || defaultSubtitle),
+        artwork: isSongApplicable ? (liveChannelData.song.artwork || liveChannelData.artwork) : liveChannelData.artwork,
         next: showLiveNext ? (liveChannelData.next || "") : "",
-        programContext: isSongAvailable ? currentProgramName : ""
+        programContext: isSongApplicable ? currentProgramName : ""
       };
 
       // Cerquem a la graella horària quin programa s'emetia en l'instant d'emissió (tant en directe com tirant enrere)
@@ -1539,11 +1574,11 @@
             (slot.title && liveChannelData.title && slot.title.trim().toLowerCase() === liveChannelData.title.trim().toLowerCase());
 
           chosen = {
-            title: isSongAvailable ? liveChannelData.song.title : (isSameAsLive ? (liveChannelData.title || slot.title) : slot.title),
-            host: isSongAvailable ? (liveChannelData.song.artist || currentProgramName) : ((isSameAsLive ? (liveChannelData.host || slot.host) : (slot.host || "")) || defaultSubtitle),
-            artwork: isSongAvailable ? (liveChannelData.song.artwork || liveChannelData.artwork) : (isSameAsLive ? (liveChannelData.artwork || slot.artwork) : (slot.artwork || liveChannelData.artwork)),
+            title: isSongApplicable ? formatSongText(liveChannelData.song.title) : (isSameAsLive ? (liveChannelData.title || slot.title) : slot.title),
+            host: isSongApplicable ? formatSongText(liveChannelData.song.artist || currentProgramName) : ((isSameAsLive ? (liveChannelData.host || slot.host) : (slot.host || "")) || defaultSubtitle),
+            artwork: isSongApplicable ? (liveChannelData.song.artwork || slot.artwork || liveChannelData.artwork) : (isSameAsLive ? (liveChannelData.artwork || slot.artwork) : (slot.artwork || liveChannelData.artwork)),
             next: isWithin20Min ? candidateNext : "",
-            programContext: isSongAvailable ? currentProgramName : ""
+            programContext: isSongApplicable ? currentProgramName : ""
           };
         }
       }
@@ -1582,7 +1617,7 @@
         nextPill.classList.remove("is-visible");
       }
       setArtworkSafe(chosen.artwork, st.logo);
-      syncMediaSession(chosen.title, chosen.host || st.name);
+      syncMediaSession(chosen.title, chosen.host || st.name, chosen.artwork);
     }
 
     function getSeekableRange() {
@@ -2273,35 +2308,6 @@
     scrubber.addEventListener("pointercancel", commitScrub);
     scrubber.addEventListener("touchcancel", commitScrub);
 
-    // Botó d'emissió AirPlay
-    if (airplayBtn) {
-      airplayBtn.addEventListener("click", () => {
-        if (typeof audio.webkitShowPlaybackTargetPicker === "function") {
-          try { audio.disableRemotePlayback = false; } catch (e) {}
-          if (!audio.src) {
-            audio.src = getStreamUrl();
-            audio.load();
-          }
-          try {
-            audio.webkitShowPlaybackTargetPicker();
-          } catch (e) {}
-        } else if (audio.remote && typeof audio.remote.prompt === "function") {
-          audio.remote.prompt().catch(() => {});
-        } else {
-          statusMsg.textContent = "AirPlay disponible des de Safari / iOS";
-          setTimeout(() => {
-            if (statusMsg.textContent === "AirPlay disponible des de Safari / iOS") {
-              statusMsg.textContent = "";
-            }
-          }, 2500);
-        }
-      });
-
-      audio.addEventListener("webkitcurrentplaybacktargetiswirelesschanged", () => {
-        airplayBtn.classList.toggle("is-active", Boolean(audio.webkitCurrentPlaybackTargetIsWireless));
-      });
-    }
-
     // Selector d'emissores amb lliscament horitzontal tàctil i interpolació del color
     function hexToRgb(hex) {
       const clean = String(hex || "#FFD100").replace("#", "");
@@ -2342,6 +2348,16 @@
         lastRenderedProgramKey = "";
         updateTimeshiftVisibility();
         updateDvrClockUI();
+
+        if (currentStation === "icat") {
+          fetchIcatNowPlaying();
+          if (!icatPollTimer) {
+            icatPollTimer = setInterval(fetchIcatNowPlaying, 20000);
+          }
+        } else if (icatPollTimer) {
+          clearInterval(icatPollTimer);
+          icatPollTimer = null;
+        }
       }
 
       if (shouldStartAudio) {
@@ -2491,6 +2507,10 @@
     updateTimeshiftVisibility();
     fetchLiveProgramMetadata();
     updateDvrClockUI();
+    if (currentStation === "icat") {
+      fetchIcatNowPlaying();
+      if (!icatPollTimer) icatPollTimer = setInterval(fetchIcatNowPlaying, 20000);
+    }
 
     // Amaga la pantalla d'inici (splash screen) i reintenta autoplay en acabar la transició
     let autoplayPending = true;

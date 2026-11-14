@@ -47,6 +47,7 @@ export default async function handler(req, res) {
   function normalizeImg(raw) {
     if (!raw || typeof raw !== "string") return null;
     let url = raw.trim().replace(/\\u002F/g, "/").replace(/\\\//g, "/").replace(/&amp;/g, "&");
+    if (url.includes("statics.ccma.cat")) url = url.replace("statics.ccma.cat", "statics.3cat.cat");
     if (url.startsWith("//")) url = "https:" + url;
     else if (url.startsWith("/multimedia/")) url = "https://img.3cat.cat" + url;
     else if (url.startsWith("/")) url = "https://www.3cat.cat" + url;
@@ -668,13 +669,11 @@ export default async function handler(req, res) {
   const debugLog = [];
 
   try {
-    let icatNextData = null;
-    let icatHtml = "";
     let directesNextData = null;
 
-    const [directesRes, icatRes] = await Promise.allSettled([
+    const [directesRes, icatWsaRes] = await Promise.allSettled([
       fetch("https://www.3cat.cat/3cat/directes/catalunya-radio/", { headers }),
-      fetch("https://www.3cat.cat/catradio/icat/", { headers })
+      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/ic/geo/cat", { headers })
     ]);
 
     if (directesRes.status === "fulfilled" && directesRes.value.ok) {
@@ -691,24 +690,55 @@ export default async function handler(req, res) {
       extractFromRenderedHtml(html, channels);
     }
 
-    if (icatRes.status === "fulfilled" && icatRes.value.ok) {
-      icatHtml = await icatRes.value.text();
-      const nextDataMatch = icatHtml.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-      if (nextDataMatch && nextDataMatch[1]) {
-        try {
-          icatNextData = JSON.parse(nextDataMatch[1]);
-        } catch (e) {}
+    if (icatWsaRes.status === "fulfilled" && icatWsaRes.value.ok) {
+      try {
+        const icatJson = await icatWsaRes.value.json();
+        const araFem = icatJson?.canal?.ara_fem;
+        if (araFem) {
+          if (!channels.icat) {
+            channels.icat = {
+              id: "icat",
+              channel: "icat",
+              title: "iCat",
+              host: "iCat",
+              artwork: null
+            };
+          }
+          if (araFem.titol_programa) {
+            channels.icat.programTitle = decodeHtmlEntities(araFem.titol_programa.trim());
+            channels.icat.title = decodeHtmlEntities(araFem.titol_programa.trim());
+          }
+          if (araFem.presentador) {
+            channels.icat.host = decodeHtmlEntities(araFem.presentador.trim());
+          }
+          const progImg = findSquareImageInObject(araFem);
+          if (progImg) {
+            channels.icat.artwork = progImg;
+          }
+
+          const arasona = araFem.arasona;
+          if (arasona && arasona.titol && typeof arasona.titol === "string" && arasona.titol.trim()) {
+            const rawImg = (Array.isArray(arasona.imatges) && arasona.imatges[0] && arasona.imatges[0].text) || null;
+            channels.icat.song = {
+              title: decodeHtmlEntities(arasona.titol.trim()),
+              artist: arasona.artista ? decodeHtmlEntities(String(arasona.artista).trim()) : "",
+              artwork: rawImg ? normalizeImg(rawImg) : null,
+              startTime: arasona.start_time || null,
+              endTime: arasona.end_time || null
+            };
+          } else {
+            channels.icat.song = null;
+          }
+        }
+      } catch (err) {
+        debugLog.push({ icatWsaError: err.message });
       }
     }
 
-    if (channels.icat) {
-      channels.icat.programTitle = channels.icat.title;
-      const song =
-        (icatNextData ? findSongInfo(icatNextData) : null) ||
-        findSongInfoInHtml(icatHtml) ||
-        (directesNextData ? findSongInfo(directesNextData) : null);
-      if (song && song.title) {
-        channels.icat.song = song;
+    if (channels.icat && !channels.icat.song && directesNextData) {
+      const fallbackSong = findSongInfo(directesNextData);
+      if (fallbackSong && fallbackSong.title) {
+        channels.icat.song = fallbackSong;
       }
     }
 
