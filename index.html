@@ -811,18 +811,19 @@
     const scrubber = document.getElementById("scrubber");
 
     const STREAM_DELAY_SECONDS = 40; // Compensació exacta del retard del flux HLS DVR + coixí de directe (ajustat -10s)
-    const LIVE_EDGE_CUSHION_SECONDS = 18; // Coixí de seguretat (3 segments HLS de 6s) per evitar micro-talls al directe
+    const LIVE_EDGE_CUSHION_SECONDS = 24; // Coixí de seguretat (4 segments HLS de 6s) per evitar micro-talls al directe
     let currentStation = "catradio";
     let isPlaying = false;
     let userWantedPlaying = false;
     let manualPauseRequested = false;
+    let wasInterruptedExternally = false;
     let resumeSavedTime = null;
     let initialLiveCushionApplied = false;
+    let streamLoadTimestamp = 0;
     let hlsInstance = null;
     let isScrubbing = false;
     let manualLagSeconds = 0;
     let activeStreamUrl = null;
-    let stallCounter = 0;
     let watchdogTimer = null;
     let clockTimer = null;
     let metadataTimer = null;
@@ -1022,6 +1023,15 @@
 
     function computeLastHourTarget(liveEmissionMs) {
       const d = new Date(liveEmissionMs);
+      if (currentStation === "catinfo") {
+        const mins = d.getMinutes();
+        d.setMinutes(mins >= 30 ? 30 : 0, 0, 0);
+        // Si estem als primers 60 segons d'una roda (:00 o :30), permetem saltar a la roda anterior (-30 min)
+        if (liveEmissionMs - d.getTime() < 60 * 1000) {
+          d.setMinutes(d.getMinutes() - 30);
+        }
+        return d;
+      }
       d.setMinutes(0, 0, 0);
       // Si estem als primers 90 segons d'una hora en punt, permetem saltar a l'hora en punt anterior
       if (liveEmissionMs - d.getTime() < 90 * 1000) {
@@ -1059,6 +1069,11 @@
       if (hourJumpLabel) {
         hourJumpLabel.textContent = lastHourDate.toLocaleTimeString("ca-ES", { hour: "2-digit", minute: "2-digit" });
       }
+      if (hourJumpBtn) {
+        const labelHint = currentStation === "catinfo" ? "Anar a l'inici de l'última roda" : "Anar a l'última hora en punt";
+        hourJumpBtn.title = labelHint;
+        hourJumpBtn.setAttribute("aria-label", labelHint);
+      }
 
       const emissionTimestamp = liveEmissionMs - (lagSeconds * 1000);
       listeningClock.textContent = formatCatalanTime(new Date(emissionTimestamp));
@@ -1089,28 +1104,12 @@
       }
     }
 
-    async function resolvePvideoDvrStream(baseUrl) {
-      if (!isTimeshiftSupported()) return baseUrl;
-      const st = STREAMS[currentStation];
-      try {
-        const res = await fetch(`/api/dvr?id=${encodeURIComponent(st.pvideoId)}`, { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          const urlList = data?.media?.url || [];
-          const hlsItem = urlList.find((u) => typeof u.file === "string" && u.file.includes(".m3u8"));
-          if (hlsItem && hlsItem.file) {
-            return hlsItem.file;
-          }
-        }
-      } catch (e) {}
-      return baseUrl;
-    }
-
     async function startPlayback(forceReload = false) {
       const baseUrl = getStreamUrl();
       statusMsg.textContent = "";
       userWantedPlaying = true;
       manualPauseRequested = false;
+      wasInterruptedExternally = false;
 
       // Si ja tenim el mateix flux carregat i no és una reconnexió forçada, reprenem al punt exacte
       if (!forceReload && activeStreamUrl === baseUrl && audio.src) {
@@ -1123,12 +1122,13 @@
 
       setLoading(true);
       initialLiveCushionApplied = false;
+      streamLoadTimestamp = Date.now();
       if (hlsInstance) {
         hlsInstance.destroy();
         hlsInstance = null;
       }
 
-      const streamUrl = await resolvePvideoDvrStream(baseUrl);
+      const streamUrl = baseUrl;
       activeStreamUrl = baseUrl;
 
       // Prioritzem el motor natiu HLS a Safari/iOS per màxima estabilitat en segon pla
@@ -1202,6 +1202,8 @@
     function pausePlayback() {
       userWantedPlaying = false;
       manualPauseRequested = true;
+      wasInterruptedExternally = false;
+      resumeSavedTime = null;
       audio.pause();
       setPlayingState(false);
       setTimeout(() => { manualPauseRequested = false; }, 400);
@@ -1212,6 +1214,7 @@
       navigator.mediaSession.setActionHandler("play", () => {
         userWantedPlaying = true;
         manualPauseRequested = false;
+        wasInterruptedExternally = false;
         if (audio.src) {
           audio.play().then(() => setPlayingState(true)).catch(() => startPlayback(false));
         } else {
@@ -1225,6 +1228,7 @@
 
       navigator.mediaSession.setActionHandler("seekbackward", (details) => {
         if (!isTimeshiftSupported()) return;
+        initialLiveCushionApplied = true;
         const offset = details.seekOffset || 10;
         const range = getSeekableRange();
         if (range) {
@@ -1235,6 +1239,7 @@
 
       navigator.mediaSession.setActionHandler("seekforward", (details) => {
         if (!isTimeshiftSupported()) return;
+        initialLiveCushionApplied = true;
         const offset = details.seekOffset || 10;
         const range = getSeekableRange();
         if (range) {
@@ -1245,42 +1250,57 @@
       });
     }
 
-    // Esdeveniments d'àudio natius (sincronitza estat, aplica coixí anti-talls al directe i reprèn després d'interrupcions com WhatsApp)
+    // Aplica el coixí anti-talls una única vegada durant l'arrencada inicial del canal (mai mentre l'usuari ja escolta)
+    function applyInitialLiveCushionIfNeeded() {
+      if (initialLiveCushionApplied || !isTimeshiftSupported()) return;
+      if (Date.now() - streamLoadTimestamp > 3500) {
+        initialLiveCushionApplied = true;
+        return;
+      }
+      const range = getSeekableRange();
+      if (range && range.end - range.start > 30) {
+        initialLiveCushionApplied = true;
+        const safeLiveEnd = getSafeLiveTarget(range);
+        if (range.end - audio.currentTime < LIVE_EDGE_CUSHION_SECONDS - 2) {
+          try { audio.currentTime = safeLiveEnd; } catch (e) {}
+        }
+      }
+    }
+
+    // Esdeveniments d'àudio natius (sincronitza estat, aplica coixí anti-talls a l'inici i reprèn després d'interrupcions com WhatsApp)
+    audio.addEventListener("loadedmetadata", applyInitialLiveCushionIfNeeded);
+    audio.addEventListener("canplay", applyInitialLiveCushionIfNeeded);
     audio.addEventListener("play", () => setPlayingState(true));
     audio.addEventListener("pause", () => {
       if (!manualPauseRequested && userWantedPlaying) {
         // Interrupció externa d'iOS (ex. àudio de WhatsApp o trucada): guardem el segon exacte per reprendre quan acabi
+        wasInterruptedExternally = true;
         resumeSavedTime = audio.currentTime;
       }
       setPlayingState(false);
     });
     audio.addEventListener("playing", () => {
       setLoading(false);
-      stallCounter = 0;
+      wasInterruptedExternally = false;
       statusMsg.textContent = "";
-
-      // Aplica un coixí de 18s respecte a l'últim segment HLS per evitar els micro-salts d'1s al directe d'iOS
-      if (!initialLiveCushionApplied && isTimeshiftSupported()) {
-        const range = getSeekableRange();
-        if (range && range.end - range.start > 30) {
-          initialLiveCushionApplied = true;
-          const safeLiveEnd = getSafeLiveTarget(range);
-          if (range.end - audio.currentTime < LIVE_EDGE_CUSHION_SECONDS - 2) {
-            try { audio.currentTime = safeLiveEnd; } catch (e) {}
-          }
-        }
+      applyInitialLiveCushionIfNeeded();
+    });
+    audio.addEventListener("timeupdate", () => {
+      if (!initialLiveCushionApplied) {
+        applyInitialLiveCushionIfNeeded();
       }
     });
 
     // Quan s'acaba l'àudio de WhatsApp i tornem a la pantalla o el sistema allibera l'àudio, reprenem on s'havia quedat
     const tryAutoResumeAfterInterruption = () => {
-      if (!userWantedPlaying || !audio.paused || !audio.src) return;
+      if (!userWantedPlaying || !wasInterruptedExternally || !audio.paused || !audio.src) return;
       const targetTime = resumeSavedTime;
       audio.play().then(() => {
+        wasInterruptedExternally = false;
         setPlayingState(true);
         if (targetTime && targetTime > 0 && isTimeshiftSupported()) {
           const range = getSeekableRange();
-          if (range && targetTime >= range.start && targetTime <= range.end) {
+          if (range && targetTime >= range.start && targetTime <= range.end && Math.abs(audio.currentTime - targetTime) > 2) {
             try { audio.currentTime = targetTime; } catch (e) {}
           }
         }
@@ -1297,25 +1317,12 @@
     window.addEventListener("focus", tryAutoResumeAfterInterruption);
     window.addEventListener("pageshow", tryAutoResumeAfterInterruption);
     setInterval(() => {
-      if (userWantedPlaying && audio.paused) {
+      if (userWantedPlaying && wasInterruptedExternally && audio.paused && document.visibilityState === "visible") {
         tryAutoResumeAfterInterruption();
       }
     }, 2500);
     audio.addEventListener("waiting", () => {
       if (isPlaying) statusMsg.textContent = "Carregant àudio...";
-    });
-    audio.addEventListener("stalled", () => {
-      if (!isPlaying) return;
-      stallCounter++;
-      if (stallCounter >= 3) {
-        stallCounter = 0;
-        const savedTime = audio.currentTime;
-        audio.play().then(() => {
-          if (savedTime > 0 && isTimeshiftSupported()) {
-            try { audio.currentTime = savedTime; } catch (e) {}
-          }
-        }).catch(() => {});
-      }
     });
 
     // Botó principal Play / Pause
@@ -1330,6 +1337,7 @@
     // Botons -10s i +10s
     back10Btn.addEventListener("click", () => {
       if (!isTimeshiftSupported()) return;
+      initialLiveCushionApplied = true;
       const range = getSeekableRange();
       if (!range) return;
       audio.currentTime = Math.max(range.start, audio.currentTime - 10);
@@ -1338,6 +1346,7 @@
 
     fwd10Btn.addEventListener("click", () => {
       if (!isTimeshiftSupported()) return;
+      initialLiveCushionApplied = true;
       const range = getSeekableRange();
       if (!range) return;
       const safeLiveEnd = getSafeLiveTarget(range);
@@ -1345,9 +1354,10 @@
       updateDvrClockUI();
     });
 
-    // Saltar a l'última hora en punt (ex: 13:00:00)
+    // Saltar a l'última hora en punt (o inici d'última roda a 3CatInfo)
     hourJumpBtn.addEventListener("click", () => {
       if (!isTimeshiftSupported()) return;
+      initialLiveCushionApplied = true;
       const range = getSeekableRange();
       if (!range) return;
       const safeLiveEnd = getSafeLiveTarget(range);
@@ -1364,6 +1374,7 @@
 
     // Saltar de nou al directe viu (amb coixí anti-talls)
     liveJumpBtn.addEventListener("click", () => {
+      initialLiveCushionApplied = true;
       const range = getSeekableRange();
       if (range) {
         const safeLiveEnd = getSafeLiveTarget(range);
@@ -1380,6 +1391,7 @@
     // Interacció tàctil fluida amb la barra de Timeshift
     const beginScrub = () => {
       if (!isTimeshiftSupported()) return;
+      initialLiveCushionApplied = true;
       isScrubbing = true;
     };
 
@@ -1444,6 +1456,7 @@
       territorialRow.style.visibility = currentStation === "catradio" ? "visible" : "hidden";
 
       updateTimeshiftVisibility();
+      updateDvrClockUI();
       fetchLiveProgramMetadata();
       startPlayback(true);
     });
@@ -1451,6 +1464,7 @@
     // Selector de connexió territorial (Barcelona, Girona, Lleida, Tarragona)
     territorialSelect.addEventListener("change", () => {
       updateTimeshiftVisibility();
+      updateDvrClockUI();
       fetchLiveProgramMetadata();
       startPlayback(true);
     });
