@@ -69,24 +69,84 @@ export default async function handler(req, res) {
       .trim();
   }
 
-  function extractMultimediaUrl(textChunk) {
+  // Busca dins d'un objecte JSON qualsevol imatge que tingui relació 1:1 (amplada == alcada o camp quadrat)
+  function findSquareImageInObject(obj, depth = 0) {
+    if (!obj || typeof obj !== "object" || depth > 6) return null;
+
+    if (Array.isArray(obj)) {
+      for (const item of obj) {
+        const found = findSquareImageInObject(item, depth + 1);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    // Camps explícits de portada quadrada de l'API de 3Cat
+    const directSquareKeys = [
+      "imatge_quadrada",
+      "imatgeQuadrada",
+      "imatge_1x1",
+      "imatge1x1",
+      "quadrada",
+      "square",
+      "cover"
+    ];
+    for (const k of directSquareKeys) {
+      if (typeof obj[k] === "string") {
+        const u = normalizeImg(obj[k]);
+        if (u) return u;
+      } else if (obj[k] && typeof obj[k] === "object") {
+        const u = normalizeImg(obj[k].url || obj[k].src || obj[k].text);
+        if (u) return u;
+      }
+    }
+
+    // Comprovació per dimensions (amplada === alcada) o proporció ("1:1" / "1x1")
+    const w = Number(obj.amplada || obj.width || obj.w || 0);
+    const h = Number(obj.alcada || obj.height || obj.h || 0);
+    const ratio = String(obj.relacio || obj.ratio || obj.aspect || obj.mida || "").toLowerCase();
+    const rawUrl = obj.url || obj.src || obj.text || obj.imatge;
+
+    if (typeof rawUrl === "string") {
+      const normalized = normalizeImg(rawUrl);
+      if (normalized) {
+        if ((w > 0 && h > 0 && Math.abs(w - h) <= 4) || ratio === "1:1" || ratio === "1x1" || ratio.includes("quadra")) {
+          return normalized;
+        }
+      }
+    }
+
+    for (const k of Object.keys(obj)) {
+      if (/16x9|16_9|vertical|poster|cartell/i.test(k)) continue;
+      const found = findSquareImageInObject(obj[k], depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function extractMultimediaUrl(textChunk, objContext = null) {
+    if (objContext) {
+      const exactSquare = findSquareImageInObject(objContext);
+      if (exactSquare) return exactSquare;
+    }
+
     if (!textChunk) return null;
     const matches = textChunk.match(/(?:https?:\/\/img\.3cat\.cat)?\/multimedia\/[^"'\s\\<>]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s\\<>]*)?/gi);
     if (!matches || matches.length === 0) return null;
 
-    // Eliminem duplicats i normalitzem
     const valid = [...new Set(matches.map(normalizeImg).filter(Boolean))];
     if (valid.length === 0) return null;
 
-    // 1. Busquem explícitament la versió quadrada (1:1)
+    // 1. Etiqueta quadrada explícita
     const square = valid.find((u) => /1x1|1_1|quadra|square|cover|200x200|300x300|400x400|500x500|512x512|600x600|800x800/i.test(u));
     if (square) return square;
 
-    // 2. Si no hi ha etiqueta quadrada explícita, descartem les que sabem segur que són 16:9
-    const non16x9 = valid.filter((u) => !/16x9|16_9|panoramic|horitzontal|wide|1920x1080|1280x720/i.test(u));
-    if (non16x9.length > 0) {
-      // A la card de 3Cat, l'última imatge sense 16:9 acostuma a ser la miniatura quadrada del programa
-      return non16x9[non16x9.length - 1];
+    // 2. Descartem tant les panoràmiques (16:9) com les verticals (poster / 2:3 / 9:16)
+    const squareCandidates = valid.filter(
+      (u) => !/16x9|16_9|panoramic|horitzontal|wide|1920x1080|1280x720|vertical|portrait|poster|cartell|2x3|2_3|3x4|3_4|9x16|9_16|1080x1920|720x1280/i.test(u)
+    );
+    if (squareCandidates.length > 0) {
+      return squareCandidates[0];
     }
 
     return valid[0];
@@ -156,7 +216,9 @@ export default async function handler(req, res) {
         }
       }
 
-      const artwork = extractMultimediaUrl(JSON.stringify(prog)) || extractMultimediaUrl(JSON.stringify(node));
+      const artwork =
+        extractMultimediaUrl(JSON.stringify(prog), prog) ||
+        extractMultimediaUrl(JSON.stringify(node), node);
 
       if (title && typeof title === "string" && title.length > 1 && !/^directe:/i.test(title)) {
         result[chKey] = {
@@ -185,12 +247,12 @@ export default async function handler(req, res) {
       }
       if (markerIdx === -1) continue;
 
-      const sliceStart = Math.max(0, markerIdx - 1800);
-      const sliceEnd = Math.min(html.length, markerIdx + 2800);
-      const cardHtml = html.slice(sliceStart, sliceEnd);
+      // La miniatura quadrada de la targeta va just abans del text "Directe: ..." / "Emissora: ..."
+      const beforeMarkerHtml = html.slice(Math.max(0, markerIdx - 1600), markerIdx);
+      const fullCardHtml = html.slice(Math.max(0, markerIdx - 1600), Math.min(html.length, markerIdx + 2400));
 
-      const artwork = extractMultimediaUrl(cardHtml);
-      const nextMatch = cardHtml.match(/A continuaci[oó]:\s*(?:<[^>]+>\s*)*([^<]{3,120})/i);
+      const artwork = extractMultimediaUrl(beforeMarkerHtml) || extractMultimediaUrl(fullCardHtml);
+      const nextMatch = fullCardHtml.match(/A continuaci[oó]:\s*(?:<[^>]+>\s*)*([^<]{3,120})/i);
       const nextText = nextMatch ? `A continuació: ${decodeHtmlEntities(nextMatch[1])}` : "";
 
       const afterMarker = html.slice(markerIdx, Math.min(html.length, markerIdx + 1800));
@@ -219,7 +281,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // Recull els blocs horaris de la graella web de 3Cat per saber què sonava minuts/hores enrere
   function collectScheduleItems(node, items) {
     if (!node || typeof node !== "object") return;
     if (Array.isArray(node)) {
@@ -235,7 +296,7 @@ export default async function handler(req, res) {
 
     if (startMs && title && typeof title === "string" && title.length > 1) {
       const host = node.subtitol_programa || node.subtitol || node.presentador || "";
-      const artwork = extractMultimediaUrl(JSON.stringify(node));
+      const artwork = extractMultimediaUrl(JSON.stringify(node), node);
       items.push({
         startMs,
         endMs: endMs || null,
@@ -262,7 +323,6 @@ export default async function handler(req, res) {
       }
     } catch (e) {}
 
-    // Ordenem cronològicament i dedupliquem per hora d'inici
     rawItems.sort((a, b) => a.startMs - b.startMs);
     const deduped = [];
     for (const item of rawItems) {
@@ -298,7 +358,6 @@ export default async function handler(req, res) {
       extractFromRenderedHtml(html, channels);
     }
 
-    // Carreguem en paral·lel la graella horària del dia per poder mostrar programes anteriors en tirar enrere
     const uniqueSlugs = [...new Set(CHANNEL_MATCHERS.map((m) => m.graellaSlug))];
     const schedulesBySlug = {};
     await Promise.all(
