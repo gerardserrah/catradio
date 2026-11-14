@@ -278,16 +278,26 @@
 
     .artwork-wrapper {
       position: relative;
-      width: min(268px, 68vw);
-      height: min(268px, 68vw);
+      width: min(252px, 62vw);
+      height: min(252px, 62vw);
       border-radius: 10px;
       background: #121212;
       box-shadow: 0 18px 44px rgba(0, 0, 0, 0.75);
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
+      transform: scale(1);
+      will-change: transform, box-shadow;
+      transition:
+        transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .artwork-wrapper.is-shrunk {
+      transform: scale(0.84);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.52);
     }
 
     .artwork {
@@ -651,9 +661,110 @@
       font-size: 12px;
       color: var(--accent-color);
       text-align: center;
-      min-height: 16px;
-      margin-bottom: 4px;
+      min-height: 14px;
+      margin-bottom: 2px;
       transition: color 0.3s ease;
+    }
+
+    /* Barra inferior de Volum + AirPlay */
+    .volume-airplay-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 2px 4px 0 4px;
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+
+    .vol-icon-btn,
+    .airplay-btn {
+      background: transparent;
+      border: none;
+      color: #9ca3af;
+      padding: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform 0.15s ease, color 0.2s ease;
+    }
+
+    .vol-icon-btn:active,
+    .airplay-btn:active {
+      transform: scale(0.9);
+      color: #ffffff;
+    }
+
+    .airplay-btn.is-active {
+      color: var(--accent-color);
+    }
+
+    .volume-slider {
+      --vol-progress: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 24px;
+      background: transparent;
+      outline: none;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .volume-slider::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(
+        to right,
+        #d1d5db 0%,
+        #d1d5db var(--vol-progress, 100%),
+        #2f2f2f var(--vol-progress, 100%),
+        #2f2f2f 100%
+      );
+      border-radius: 999px;
+    }
+
+    .volume-slider:active::-webkit-slider-runnable-track {
+      background: linear-gradient(
+        to right,
+        var(--accent-color) 0%,
+        var(--accent-color) var(--vol-progress, 100%),
+        #2f2f2f var(--vol-progress, 100%),
+        #2f2f2f 100%
+      );
+    }
+
+    .volume-slider::-moz-range-track {
+      width: 100%;
+      height: 4px;
+      background: #2f2f2f;
+      border-radius: 999px;
+    }
+
+    .volume-slider::-moz-range-progress {
+      height: 4px;
+      background: #d1d5db;
+      border-radius: 999px;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      margin-top: -5.5px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+      transition: transform 0.12s ease, background-color 0.12s ease;
+    }
+
+    .volume-slider:active::-webkit-slider-thumb {
+      transform: scale(1.22);
+      background: var(--accent-color);
     }
 
     /* Peu amb reconnexió */
@@ -788,7 +899,7 @@
 
     <!-- Zona central: Caràtula i títol del programa -->
     <div class="center-stage">
-      <div class="artwork-wrapper">
+      <div class="artwork-wrapper is-shrunk" id="artworkWrapper">
         <img id="artwork" class="artwork is-logo-fallback" src="https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg" alt="Programa" />
       </div>
       <h1 class="program-title" id="programTitle">Catalunya Ràdio</h1>
@@ -865,12 +976,33 @@
         </button>
       </div>
 
+      <!-- Barra de volum i botó d'AirPlay -->
+      <div class="volume-airplay-row">
+        <button class="vol-icon-btn" id="muteBtn" aria-label="Silenciar o activar so">
+          <svg id="volIconSpeaker" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path id="volWave1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path id="volWave2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            <line id="volMuteSlash" x1="22" y1="9" x2="16" y2="15" style="display:none;"></line>
+          </svg>
+        </button>
+
+        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100" step="1" aria-label="Volum" />
+
+        <button class="airplay-btn" id="airplayBtn" aria-label="Emetre per AirPlay" title="AirPlay">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"></path>
+            <polygon points="12 15 17 21 7 21 12 15" fill="currentColor"></polygon>
+          </svg>
+        </button>
+      </div>
+
       <div class="status-msg" id="statusMsg"></div>
     </div>
   </div>
 
   <!-- Reproductor natiu HTML5 (màxima estabilitat en segon pla a iOS) -->
-  <audio id="audioPlayer" preload="auto" autoplay playsinline></audio>
+  <audio id="audioPlayer" preload="auto" autoplay playsinline x-webkit-airplay="allow"></audio>
 
   <script>
     const STREAMS = {
@@ -935,6 +1067,7 @@
     const programTitle = document.getElementById("programTitle");
     const programHost = document.getElementById("programHost");
     const nextPill = document.getElementById("nextPill");
+    const artworkWrapper = document.getElementById("artworkWrapper");
     const artwork = document.getElementById("artwork");
     const territorialRow = document.getElementById("territorialRow");
     const territorialSelect = document.getElementById("territorialSelect");
@@ -953,6 +1086,12 @@
     const hourJumpBtn = document.getElementById("hourJumpBtn");
     const hourJumpLabel = document.getElementById("hourJumpLabel");
     const scrubber = document.getElementById("scrubber");
+    const volumeSlider = document.getElementById("volumeSlider");
+    const muteBtn = document.getElementById("muteBtn");
+    const volWave1 = document.getElementById("volWave1");
+    const volWave2 = document.getElementById("volWave2");
+    const volMuteSlash = document.getElementById("volMuteSlash");
+    const airplayBtn = document.getElementById("airplayBtn");
 
     // Garanteix que la webapp ocupi sempre el 100% de l'alçada física a iOS (evita el bug aleatori de WebKit amb safe-area)
     function syncViewportHeight() {
@@ -1416,6 +1555,12 @@
       }
     }
 
+    function updateArtworkScale() {
+      if (!artworkWrapper) return;
+      const shouldShrink = !isPlaying || isScrubbing;
+      artworkWrapper.classList.toggle("is-shrunk", shouldShrink);
+    }
+
     function setLoading(loading) {
       spinner.style.display = loading ? "block" : "none";
       playBtn.style.display = loading ? "none" : "flex";
@@ -1432,6 +1577,7 @@
       isPlaying = playing;
       playIcon.style.display = playing ? "none" : "block";
       pauseIcon.style.display = playing ? "block" : "none";
+      updateArtworkScale();
       if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = playing ? "playing" : "paused";
       }
@@ -1805,6 +1951,7 @@
       if (!isTimeshiftSupported()) return;
       initialLiveCushionApplied = true;
       isScrubbing = true;
+      updateArtworkScale();
       scrubWindowSeconds = getDvrWindowSeconds(getSeekableRange());
       nextPill.style.display = "none";
       if (lagBubbleHideTimer) {
@@ -1838,6 +1985,7 @@
     const commitScrub = () => {
       if (!isScrubbing) return;
       isScrubbing = false;
+      updateArtworkScale();
       if (!isTimeshiftSupported()) return;
       const range = getSeekableRange();
       if (!range) {
@@ -1862,6 +2010,81 @@
     scrubber.addEventListener("touchend", commitScrub);
     scrubber.addEventListener("pointercancel", commitScrub);
     scrubber.addEventListener("touchcancel", commitScrub);
+
+    // Control de Volum i Silenci (Mute)
+    let savedVolumeBeforeMute = 100;
+
+    function updateVolumeUI(volPct) {
+      const clamped = Math.min(100, Math.max(0, Math.round(volPct)));
+      if (volumeSlider) {
+        volumeSlider.value = String(clamped);
+        volumeSlider.style.setProperty("--vol-progress", `${clamped}%`);
+      }
+      const isMuted = clamped === 0 || audio.muted;
+      if (volWave1) volWave1.style.display = (!isMuted && clamped > 5) ? "block" : "none";
+      if (volWave2) volWave2.style.display = (!isMuted && clamped >= 50) ? "block" : "none";
+      if (volMuteSlash) volMuteSlash.style.display = isMuted ? "block" : "none";
+    }
+
+    function applyVolumeFromPct(volPct) {
+      const clamped = Math.min(100, Math.max(0, Math.round(volPct)));
+      if (clamped > 0) {
+        savedVolumeBeforeMute = clamped;
+      }
+      audio.muted = (clamped === 0);
+      try {
+        audio.volume = clamped / 100;
+      } catch (e) {}
+      updateVolumeUI(clamped);
+    }
+
+    if (volumeSlider) {
+      volumeSlider.addEventListener("input", () => {
+        applyVolumeFromPct(parseFloat(volumeSlider.value) || 0);
+      });
+    }
+
+    if (muteBtn) {
+      muteBtn.addEventListener("click", () => {
+        const currentPct = parseFloat(volumeSlider ? volumeSlider.value : "100") || 0;
+        if (audio.muted || currentPct === 0) {
+          applyVolumeFromPct(savedVolumeBeforeMute > 5 ? savedVolumeBeforeMute : 80);
+        } else {
+          savedVolumeBeforeMute = currentPct;
+          applyVolumeFromPct(0);
+        }
+      });
+    }
+
+    // Botó d'emissió AirPlay
+    if (airplayBtn) {
+      airplayBtn.addEventListener("click", () => {
+        if (typeof audio.webkitShowPlaybackTargetPicker === "function") {
+          if (!audio.src) {
+            audio.src = getStreamUrl();
+            audio.load();
+          }
+          try {
+            audio.webkitShowPlaybackTargetPicker();
+          } catch (e) {}
+        } else if (audio.remote && typeof audio.remote.prompt === "function") {
+          audio.remote.prompt().catch(() => {});
+        } else {
+          statusMsg.textContent = "AirPlay disponible des de Safari / iOS";
+          setTimeout(() => {
+            if (statusMsg.textContent === "AirPlay disponible des de Safari / iOS") {
+              statusMsg.textContent = "";
+            }
+          }, 2500);
+        }
+      });
+
+      audio.addEventListener("webkitcurrentplaybacktargetiswirelesschanged", () => {
+        airplayBtn.classList.toggle("is-active", Boolean(audio.webkitCurrentPlaybackTargetIsWireless));
+      });
+    }
+
+    updateVolumeUI(100);
 
     // Selector d'emissores
     document.getElementById("stationsGrid").addEventListener("click", (e) => {
