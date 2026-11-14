@@ -212,7 +212,7 @@ export default async function handler(req, res) {
 
     const chKey = detectChannelKey(node);
     if (chKey && !result[chKey]) {
-      const prog = node.ara || node.directe || node.programa_actual || node;
+      const prog = node.ara_fem || node.ara || node.directe || node.programa_actual || node;
       const title =
         prog.titol_programa ||
         prog.programa ||
@@ -220,34 +220,50 @@ export default async function handler(req, res) {
         node.titol_programa;
 
       const host =
+        prog.presentador ||
+        node.presentador ||
         prog.subtitol_programa ||
         prog.subtitol ||
-        prog.presentador ||
-        prog.descripcio_curta ||
         "";
 
-      const nextObj = node.seguent || prog.seguent || node.despres || prog.despres;
+      const nextObj = node.despres_fem || node.seguent || prog.seguent || node.despres || prog.despres;
       let nextText = "";
+      let nextStartMs = null;
       if (typeof nextObj === "string" && nextObj.trim()) {
         nextText = nextObj.includes("A continuació") ? nextObj.trim() : `A continuació: ${nextObj.trim()}`;
       } else if (nextObj && typeof nextObj === "object") {
-        const nextTitle = nextObj.titol || nextObj.titol_programa || nextObj.programa;
-        const nextHour = nextObj.hora || nextObj.hora_inici || "";
+        const nextTitle = nextObj.titol_programa || nextObj.titol || nextObj.programa;
+        nextStartMs = parseTimestampMs(nextObj.start_time || nextObj.data_inici || nextObj.hora_inici_iso);
+        let nextHour = nextObj.hora || nextObj.hora_inici || "";
+        if (!nextHour && nextStartMs) {
+          nextHour = new Date(nextStartMs).toLocaleTimeString("ca-ES", {
+            timeZone: "Europe/Madrid",
+            hour: "2-digit",
+            minute: "2-digit"
+          });
+        }
         if (nextTitle) {
           nextText = `A continuació: ${nextHour} ${nextTitle}`.replace(/\s+/g, " ").trim();
         }
       }
+
+      const startMs = parseTimestampMs(prog.start_time || prog.data_inici || prog.hora_inici_iso);
+      const endMs = parseTimestampMs(prog.end_time || prog.data_fi || prog.hora_fi_iso) || nextStartMs;
 
       const artwork =
         extractMultimediaUrl(JSON.stringify(prog), prog) ||
         extractMultimediaUrl(JSON.stringify(node), node);
 
       if (title && typeof title === "string" && title.length > 1 && !/^directe:/i.test(title)) {
+        const cleanTitle = decodeHtmlEntities(title);
+        const cleanHost = (typeof host === "string" && host.trim()) ? decodeHtmlEntities(host) : lookupKnownHost(cleanTitle);
         result[chKey] = {
-          title: title.trim(),
-          host: typeof host === "string" ? host.trim() : "",
+          title: cleanTitle,
+          host: cleanHost,
           artwork: artwork || null,
           next: nextText,
+          startMs: startMs || null,
+          endMs: endMs || null,
           schedule: []
         };
       }
@@ -303,15 +319,58 @@ export default async function handler(req, res) {
     }
   }
 
-  function extractHostFromScheduleNode(node) {
-    const direct = node.subtitol_programa || node.subtitol || node.presentador || "";
+  const KNOWN_PROGRAM_HOSTS = {
+    "la finestra indiscreta": "Toni de la Torre",
+    "l'altre barri": "Blai Marsé",
+    "les dones i els dies": "Montse Virgili",
+    "el matí de catalunya ràdio": "Ricard Ustrell",
+    "els matiners": "Xavi Canalias",
+    "la renaixença": "Peyu",
+    "la solució": "Elisenda Carod",
+    "catalunya migdia": "Òscar Fernández",
+    "la tarda de catalunya ràdio": "Francesc Garriga",
+    "que no surti d'aquí": "Roger Carandell, Juliana Canet i Marta Montaner",
+    "tot costa": "Jordi Costa i Sònia Gelmà",
+    "catalunya nit": "Manel Alías",
+    "catalunya al dia": "Estel Batet",
+    "el suplement": "Roger Escapa",
+    "crims": "Carles Porta",
+    "el búnquer": "Peyu, Jair Domínguez i Neus Rossell",
+    "la nit dels ignorants 3.0": "Xavier Solà",
+    "solidaris": "Mercè Folch",
+    "un restaurant caníbal a berlín": "Paula Molés",
+    "revolució 4.0": "Xantal Llavina",
+    "l'ofici de viure": "Gaspar Hernández",
+    "en guàrdia!": "Enric Calpena",
+    "ciutat maragda": "David Guzmán",
+    "adolescents xl": "Roger Carandell, Juliana Canet i Marta Montaner",
+    "els experts": "Albert Miralles i Roger Seró",
+    "loft": "Xènia Casado i Berta Aroca",
+    "casa babylon": "Jordi Turtós",
+    "tots els matins del món": "Ester Plana i Joan Vives",
+    "assaig general": "Albert Torrens i Marta Lanau",
+    "els homes clàssics": "Albert Galceran i Pedro Pardo"
+  };
+
+  function lookupKnownHost(title) {
+    if (!title) return "";
+    const norm = decodeHtmlEntities(title).toLowerCase().trim();
+    if (KNOWN_PROGRAM_HOSTS[norm]) return KNOWN_PROGRAM_HOSTS[norm];
+    for (const [k, v] of Object.entries(KNOWN_PROGRAM_HOSTS)) {
+      if (norm.includes(k)) return v;
+    }
+    return "";
+  }
+
+  function extractHostFromScheduleNode(node, title) {
+    const direct = node.presentador || node.subtitol_programa || node.subtitol || "";
     if (typeof direct === "string" && direct.trim()) return decodeHtmlEntities(direct);
     const desc = typeof node.descripcio === "string" ? decodeHtmlEntities(node.descripcio) : "";
     if (desc) {
-      const m = desc.match(/(?:Realitz(?:a|en)|Dirigit per|Presenta|Amb)\s*:?\s*([^.;]{3,55})/i);
+      const m = desc.match(/(?:Realitz(?:a|en)|Dirigit(?:\s+i\s+presentat)?\s+per|Presenta(?:t\s+per)?)\s*:?\s*([A-ZÀ-Ý][^.;"<>]{2,60})/i);
       if (m && m[1]) return m[1].trim();
     }
-    return "";
+    return lookupKnownHost(title);
   }
 
   function collectScheduleItems(node, items) {
@@ -333,12 +392,13 @@ export default async function handler(req, res) {
     }
 
     if (startMs && title && typeof title === "string" && title.length > 1) {
-      const host = extractHostFromScheduleNode(node);
+      const cleanTitle = decodeHtmlEntities(title);
+      const host = extractHostFromScheduleNode(node, cleanTitle);
       const artwork = extractMultimediaUrl(JSON.stringify(node), node);
       items.push({
         startMs,
         endMs: endMs || null,
-        title: decodeHtmlEntities(title),
+        title: cleanTitle,
         host,
         artwork: artwork || null
       });

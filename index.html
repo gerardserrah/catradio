@@ -85,8 +85,8 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      height: 100dvh;
-      min-height: -webkit-fill-available;
+      height: 100%;
+      min-height: 100dvh;
       background-color: var(--bg);
       color: var(--text);
       font-family: var(--font-main);
@@ -94,6 +94,8 @@
     }
 
     body {
+      position: fixed;
+      inset: 0;
       display: flex;
       justify-content: center;
       background: radial-gradient(circle at 50% 35%, var(--ambient-color) 0%, #0a0a0a 68%);
@@ -103,12 +105,11 @@
     .app-shell {
       width: 100%;
       max-width: 440px;
-      height: 100dvh;
-      min-height: -webkit-fill-available;
+      height: 100%;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: calc(env(safe-area-inset-top, 16px) + 10px) 20px calc(env(safe-area-inset-bottom, 20px) + 12px) 20px;
+      padding: calc(env(safe-area-inset-top, 16px) + 6px) 20px calc(env(safe-area-inset-bottom, 12px) + 6px) 20px;
     }
 
     /* Graella de 5 emissores oficials */
@@ -893,11 +894,15 @@
 
       if (!liveChannelData) return;
 
+      const TWENTY_MIN_MS = 20 * 60 * 1000;
+      const liveRemainingMs = liveChannelData.endMs ? (liveChannelData.endMs - emissionTimestampMs) : null;
+      const showLiveNext = liveRemainingMs !== null && liveRemainingMs > 0 && liveRemainingMs <= TWENTY_MIN_MS;
+
       let chosen = {
         title: liveChannelData.title,
         host: liveChannelData.host || defaultSubtitle,
         artwork: liveChannelData.artwork,
-        next: liveChannelData.next || ""
+        next: showLiveNext ? (liveChannelData.next || "") : ""
       };
 
       // Cerquem a la graella horària quin programa s'emetia en l'instant d'emissió (tant en directe com tirant enrere)
@@ -910,15 +915,23 @@
         if (idx !== -1) {
           const slot = liveChannelData.schedule[idx];
           const nextSlot = liveChannelData.schedule[idx + 1];
+          const slotEndMs = slot.endMs || (nextSlot ? nextSlot.startMs : null);
+          const remainingMs = slotEndMs ? (slotEndMs - emissionTimestampMs) : null;
+          const isWithin20Min = remainingMs !== null && remainingMs > 0 && remainingMs <= TWENTY_MIN_MS;
+
           const nextHourStr = nextSlot
             ? new Date(nextSlot.startMs).toLocaleTimeString("ca-ES", { hour: "2-digit", minute: "2-digit" })
             : "";
+
+          const candidateNext = nextSlot
+            ? `A continuació: ${nextHourStr} ${nextSlot.title}`.trim()
+            : (isHistorical ? "" : (liveChannelData.next || ""));
 
           chosen = {
             title: slot.title,
             host: slot.host || (slot.title === liveChannelData.title ? liveChannelData.host : "") || defaultSubtitle,
             artwork: slot.artwork || liveChannelData.artwork,
-            next: nextSlot ? `A continuació: ${nextHourStr} ${nextSlot.title}`.trim() : (isHistorical ? "" : (liveChannelData.next || ""))
+            next: isWithin20Min ? candidateNext : ""
           };
         }
       }
