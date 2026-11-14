@@ -73,9 +73,23 @@ export default async function handler(req, res) {
     if (!textChunk) return null;
     const matches = textChunk.match(/(?:https?:\/\/img\.3cat\.cat)?\/multimedia\/[^"'\s\\<>]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s\\<>]*)?/gi);
     if (!matches || matches.length === 0) return null;
-    const valid = matches.map(normalizeImg).filter(Boolean);
+
+    // Eliminem duplicats i normalitzem
+    const valid = [...new Set(matches.map(normalizeImg).filter(Boolean))];
     if (valid.length === 0) return null;
-    return valid.find((u) => /1x1|quadrat|cover|512|600|800/i.test(u)) || valid[0];
+
+    // 1. Busquem explícitament la versió quadrada (1:1)
+    const square = valid.find((u) => /1x1|1_1|quadra|square|cover|200x200|300x300|400x400|500x500|512x512|600x600|800x800/i.test(u));
+    if (square) return square;
+
+    // 2. Si no hi ha etiqueta quadrada explícita, descartem les que sabem segur que són 16:9
+    const non16x9 = valid.filter((u) => !/16x9|16_9|panoramic|horitzontal|wide|1920x1080|1280x720/i.test(u));
+    if (non16x9.length > 0) {
+      // A la card de 3Cat, l'última imatge sense 16:9 acostuma a ser la miniatura quadrada del programa
+      return non16x9[non16x9.length - 1];
+    }
+
+    return valid[0];
   }
 
   function detectChannelKey(obj) {
