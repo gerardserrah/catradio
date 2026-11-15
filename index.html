@@ -519,8 +519,8 @@
       flex: 1 1 auto;
       min-height: 0;
       justify-content: center;
-      padding-top: clamp(24px, 5vh, 48px);
-      padding-bottom: clamp(6px, 1.5vh, 16px);
+      padding-top: clamp(10px, 2.5vh, 24px);
+      padding-bottom: clamp(4px, 1.2vh, 10px);
       transition:
         padding 0.45s cubic-bezier(0.25, 1, 0.5, 1),
         transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
@@ -529,23 +529,34 @@
     .artwork-wrapper {
       position: relative;
       z-index: 1;
-      width: min(305px, 76vw, 36vh);
-      height: min(305px, 76vw, 36vh);
+      width: min(305px, 76vw, 35vh);
+      height: min(305px, 76vw, 35vh);
       aspect-ratio: 1 / 1 !important;
       flex-shrink: 0 !important;
       border-radius: 14px;
       background: #121212;
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
-      margin-bottom: clamp(12px, 2vh, 18px);
+      margin-bottom: clamp(8px, 1.6vh, 14px);
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
       transform: scale(1);
-      will-change: transform, box-shadow;
+      will-change: width, height, transform, box-shadow;
       transition:
+        width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
         transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
         box-shadow 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Quan apareix "A continuació", redueix lleugerament la caràtula per no alterar proporcions ni prémer controls */
+    .center-stage.has-next-pill .artwork-wrapper,
+    .app-shell.has-next-pill .artwork-wrapper,
+    .center-stage:has(.next-pill.is-visible) .artwork-wrapper,
+    .app-shell:has(.next-pill.is-visible) .artwork-wrapper {
+      width: min(278px, 70vw, 31vh);
+      height: min(278px, 70vw, 31vh);
     }
 
     .artwork-wrapper.is-shrunk {
@@ -586,8 +597,9 @@
       flex-direction: column;
       align-items: center;
       width: 100%;
-      min-height: 64px;
-      margin-bottom: clamp(8px, 1.8vh, 16px);
+      flex-shrink: 0;
+      min-height: 48px;
+      margin-bottom: clamp(6px, 1.4vh, 12px);
     }
 
     .program-title {
@@ -596,7 +608,7 @@
       font-family: var(--font-bold);
       font-size: 20px;
       font-weight: 700;
-      margin: 0 0 6px 0;
+      margin: 0 0 4px 0;
       letter-spacing: -0.01em;
       line-height: 1.25;
     }
@@ -641,34 +653,41 @@
       z-index: 2;
       margin-top: 0px;
       max-height: 0px;
-      padding: 0px 12px;
-      font-size: 12px;
+      height: 0px;
+      padding: 0px 10px;
+      font-size: 11.5px;
+      line-height: 1.2;
       color: #9ca3af;
-      background: transparent;
+      background: rgba(255, 255, 255, 0.04);
       border: 1px solid transparent;
       border-radius: 999px;
-      max-width: 92%;
+      max-width: 90%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       opacity: 0;
-      transform: translateY(6px) scale(0.96);
+      transform: translateY(4px) scale(0.96);
       pointer-events: none;
+      box-sizing: border-box;
       transition:
-        max-height 0.44s cubic-bezier(0.22, 1, 0.36, 1),
-        margin-top 0.44s cubic-bezier(0.22, 1, 0.36, 1),
-        padding 0.44s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-        transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
-        border-color 0.34s ease;
+        max-height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-top 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        padding 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 0.3s ease;
     }
 
     .next-pill.is-visible {
-      margin-top: 12px;
-      max-height: 32px;
-      padding: 4px 12px;
-      border-color: currentColor;
+      margin-top: 8px;
+      max-height: 28px;
+      height: 28px;
+      padding: 3px 12px;
+      border-color: rgba(255, 255, 255, 0.22);
       opacity: 1;
       transform: translateY(0) scale(1);
       pointer-events: auto;
@@ -695,7 +714,7 @@
       align-items: center;
       font-size: 12px;
       font-variant-numeric: tabular-nums;
-      margin-bottom: 20px;
+      margin-bottom: clamp(12px, 1.8vh, 18px);
       color: #d1d5db;
     }
 
@@ -1439,7 +1458,23 @@
     const programHost = document.getElementById("programHost");
     const programContext = document.getElementById("programContext");
     const nextPill = document.getElementById("nextPill");
+    const centerStage = document.querySelector(".center-stage");
     const artworkWrapper = document.getElementById("artworkWrapper");
+
+    function setNextPillVisible(visible, text = "") {
+      if (!nextPill) return;
+      if (visible && text) {
+        nextPill.textContent = text;
+        nextPill.classList.add("is-visible");
+        centerStage?.classList.add("has-next-pill");
+        appShell?.classList.add("has-next-pill");
+      } else {
+        nextPill.classList.remove("is-visible");
+        nextPill.textContent = "";
+        centerStage?.classList.remove("has-next-pill");
+        appShell?.classList.remove("has-next-pill");
+      }
+    }
     const artwork = document.getElementById("artwork");
     const territorialRow = document.getElementById("territorialRow");
     const territorialSelect = document.getElementById("territorialSelect");
@@ -1892,7 +1927,7 @@
         programContext.textContent = "";
         programContext.classList.remove("is-visible");
       }
-      nextPill.classList.remove("is-visible");
+      setNextPillVisible(false);
       setArtworkSafe(null, st.logo);
       syncMediaSession(st.name, defaultSubtitle);
     }
@@ -1914,7 +1949,7 @@
             programContext.textContent = "";
             programContext.classList.remove("is-visible");
           }
-          nextPill.classList.remove("is-visible");
+          setNextPillVisible(false);
           setArtworkSafe(null, st.logo);
           syncMediaSession(st.name, defaultSubtitle);
         }
@@ -1922,7 +1957,19 @@
       }
 
       const TWENTY_MIN_MS = 20 * 60 * 1000;
-      const liveRemainingMs = liveChannelData.endMs ? (liveChannelData.endMs - emissionTimestampMs) : null;
+      let effectiveEndMs = liveChannelData.endMs || null;
+      if (!effectiveEndMs && liveChannelData.next) {
+        const timeMatch = liveChannelData.next.match(/\b([01]?\d|2[0-3])[:.hH]([0-5]\d)\b/);
+        if (timeMatch) {
+          const t = new Date(emissionTimestampMs);
+          t.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
+          const diff = t.getTime() - emissionTimestampMs;
+          if (diff < -12 * 3600 * 1000) t.setDate(t.getDate() + 1);
+          if (diff > 12 * 3600 * 1000) t.setDate(t.getDate() - 1);
+          effectiveEndMs = t.getTime();
+        }
+      }
+      const liveRemainingMs = effectiveEndMs ? (effectiveEndMs - emissionTimestampMs) : null;
       const showLiveNext = liveRemainingMs !== null && liveRemainingMs > 0 && liveRemainingMs <= TWENTY_MIN_MS;
 
       const isIcat = currentStation === "icat";
@@ -2038,10 +2085,9 @@
       }
 
       if (visibleNext) {
-        nextPill.textContent = visibleNext;
-        nextPill.classList.add("is-visible");
+        setNextPillVisible(true, visibleNext);
       } else {
-        nextPill.classList.remove("is-visible");
+        setNextPillVisible(false);
       }
       setArtworkSafe(chosen.artwork, st.logo);
       syncMediaSession(chosen.title, chosen.host || st.name, chosen.artwork);
@@ -2735,7 +2781,7 @@
       isScrubbing = true;
       updateArtworkScale();
       scrubWindowSeconds = getDvrWindowSeconds(getSeekableRange());
-      nextPill.classList.remove("is-visible");
+      setNextPillVisible(false);
       if (lagBubbleHideTimer) {
         clearTimeout(lagBubbleHideTimer);
         lagBubbleHideTimer = null;
@@ -2825,10 +2871,7 @@
 
       if (changedStation) {
         lastStationSwitchTimestamp = Date.now();
-        if (nextPill) {
-          nextPill.classList.remove("is-visible");
-          nextPill.textContent = "";
-        }
+        setNextPillVisible(false);
         currentLagSeconds = 0;
         pausedAtEmissionMs = null;
         liveChannelData = allChannelsData?.[currentStation] || null;
@@ -2849,10 +2892,7 @@
 
       if (shouldStartAudio) {
         lastStationSwitchTimestamp = Date.now();
-        if (nextPill) {
-          nextPill.classList.remove("is-visible");
-          nextPill.textContent = "";
-        }
+        setNextPillVisible(false);
         updateStationPillToCurrent();
         fetchLiveProgramMetadata();
         startPlayback(true);
@@ -2944,10 +2984,7 @@
         if (!wasDragged && tappedId) {
           if (tappedId !== lastCommittedStation || tappedId !== currentStation) {
             lastStationSwitchTimestamp = Date.now();
-            if (nextPill) {
-              nextPill.classList.remove("is-visible");
-              nextPill.textContent = "";
-            }
+            setNextPillVisible(false);
             lastCommittedStation = tappedId;
             applyStationThemeAndMetadata(tappedId, true);
           } else {
@@ -2959,10 +2996,7 @@
         updateStationPillToCurrent();
         if (currentStation !== lastCommittedStation) {
           lastStationSwitchTimestamp = Date.now();
-          if (nextPill) {
-            nextPill.classList.remove("is-visible");
-            nextPill.textContent = "";
-          }
+          setNextPillVisible(false);
           lastCommittedStation = currentStation;
           fetchLiveProgramMetadata();
           startPlayback(true);
@@ -2976,10 +3010,7 @@
     // Selector de connexió territorial (Barcelona, Girona, Lleida, Tarragona)
     territorialSelect.addEventListener("change", () => {
       lastStationSwitchTimestamp = Date.now();
-      if (nextPill) {
-        nextPill.classList.remove("is-visible");
-        nextPill.textContent = "";
-      }
+      setNextPillVisible(false);
       currentLagSeconds = 0;
       pausedAtEmissionMs = null;
       lastRenderedProgramKey = "";
