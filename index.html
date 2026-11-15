@@ -126,7 +126,7 @@
       flex-direction: column;
       justify-content: space-between;
       padding-top: calc(env(safe-area-inset-top, 20px) + 6px);
-      padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+      padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) - 8px), 14px);
       padding-left: 20px;
       padding-right: 20px;
       box-sizing: border-box;
@@ -518,8 +518,8 @@
       flex: 1 1 auto;
       min-height: 0;
       justify-content: center;
-      padding-top: 36px;
-      padding-bottom: 8px;
+      padding-top: clamp(24px, 5vh, 48px);
+      padding-bottom: clamp(6px, 1.5vh, 16px);
       transition:
         padding 0.45s cubic-bezier(0.25, 1, 0.5, 1),
         transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
@@ -528,12 +528,12 @@
     .artwork-wrapper {
       position: relative;
       z-index: 1;
-      width: min(305px, 76vw, 36vh);
-      height: min(305px, 76vw, 36vh);
+      width: min(315px, 78vw, 38vh);
+      height: min(315px, 78vw, 38vh);
       border-radius: 14px;
       background: #121212;
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
-      margin-bottom: 14px;
+      margin-bottom: clamp(12px, 2vh, 18px);
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -571,7 +571,7 @@
       align-items: center;
       width: 100%;
       min-height: 64px;
-      margin-bottom: 10px;
+      margin-bottom: clamp(8px, 1.8vh, 16px);
     }
 
     .program-title {
@@ -663,7 +663,7 @@
     /* Barra de Timeshift / Rellotge */
     .timeshift-box {
       width: 100%;
-      margin-bottom: 12px;
+      margin-bottom: clamp(10px, 2vh, 16px);
       max-height: 80px;
       opacity: 1;
       transform: translateY(0);
@@ -836,7 +836,7 @@
       justify-content: center;
       gap: 32px;
       width: 100%;
-      margin-bottom: 6px;
+      margin-bottom: clamp(2px, 0.8vh, 6px);
       transition:
         gap 0.42s cubic-bezier(0.25, 1, 0.5, 1),
         margin 0.42s cubic-bezier(0.25, 1, 0.5, 1);
