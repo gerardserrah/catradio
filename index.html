@@ -715,153 +715,113 @@
       transition: color 0.25s ease;
     }
 
-    .clock-display.roll-clac-back,
-    .clock-display.roll-clac-fwd {
-      animation: clockDisplayClacGlow 0.46s ease;
+    .clock-time-wrap {
+      display: inline-flex;
+      align-items: center;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
     }
 
-    .clock-display.roll-clac-back #listeningClock {
+    .clock-digits {
       display: inline-block;
-      animation: clockRollClacBack 0.46s cubic-bezier(0.16, 1, 0.3, 1);
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
-      mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+      vertical-align: baseline;
+      will-change: transform, filter, opacity, color;
     }
 
-    .clock-display.roll-clac-fwd #listeningClock {
+    .clock-sep {
       display: inline-block;
-      animation: clockRollClacFwd 0.46s cubic-bezier(0.16, 1, 0.3, 1);
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
-      mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+      vertical-align: baseline;
+      opacity: 0.65;
+      padding: 0 0.5px;
     }
 
-    .clock-display.roll-clac-back .clock-icon {
-      animation: clockIconRollBack 0.46s cubic-bezier(0.2, 0.85, 0.3, 1.15);
+    .clock-display.clock-active-seek {
+      animation: clockSubtleFlash 0.35s ease;
     }
 
-    .clock-display.roll-clac-fwd .clock-icon {
-      animation: clockIconRollFwd 0.46s cubic-bezier(0.2, 0.85, 0.3, 1.15);
-    }
-
-    @keyframes clockDisplayClacGlow {
-      0% { color: var(--accent-color); }
-      55% { color: var(--accent-color); }
+    @keyframes clockSubtleFlash {
+      0% { color: #d1d5db; }
+      35% { color: var(--accent-color); }
       100% { color: #d1d5db; }
     }
 
-    @keyframes clockRollClacBack {
-      0% {
-        transform: translateY(0);
-        filter: blur(0px);
-        opacity: 1;
-      }
-      /* Clac 1: Desplaçament vertical ràpid cap avall amb desenfocament de moviment */
-      15% {
-        transform: translateY(14px);
-        filter: blur(2.5px);
-        opacity: 0.25;
-      }
-      16% {
-        transform: translateY(-14px);
-        filter: blur(2.5px);
-        opacity: 0.25;
-      }
-      /* Clac 2: Segon salt vertical */
-      40% {
-        transform: translateY(10px);
-        filter: blur(1.8px);
-        opacity: 0.4;
-      }
-      41% {
-        transform: translateY(-10px);
-        filter: blur(1.8px);
-        opacity: 0.4;
-      }
-      /* Clac 3: Tercer salt ràpid més curt */
-      68% {
-        transform: translateY(5px);
-        filter: blur(0.9px);
-        opacity: 0.7;
-      }
-      69% {
-        transform: translateY(-5px);
-        filter: blur(0.9px);
-        opacity: 0.7;
-      }
-      /* Aterratge net amb rebot de parada */
-      88% {
-        transform: translateY(1.5px);
-        filter: blur(0.2px);
-        opacity: 0.95;
-      }
-      100% {
-        transform: translateY(0);
-        filter: blur(0px);
-        opacity: 1;
-      }
+    .clock-display.clock-hour-jump .clock-icon {
+      animation: clockIconHourSpin 0.55s cubic-bezier(0.2, 0.85, 0.3, 1.15);
     }
 
-    @keyframes clockRollClacFwd {
-      0% {
-        transform: translateY(0);
-        filter: blur(0px);
-        opacity: 1;
-      }
-      /* Clac 1: Desplaçament vertical ràpid cap amunt amb desenfocament */
-      15% {
-        transform: translateY(-14px);
-        filter: blur(2.5px);
-        opacity: 0.25;
-      }
-      16% {
-        transform: translateY(14px);
-        filter: blur(2.5px);
-        opacity: 0.25;
-      }
-      /* Clac 2: Segon salt vertical */
-      40% {
-        transform: translateY(-10px);
-        filter: blur(1.8px);
-        opacity: 0.4;
-      }
-      41% {
-        transform: translateY(10px);
-        filter: blur(1.8px);
-        opacity: 0.4;
-      }
-      /* Clac 3: Tercer salt més curt */
-      68% {
-        transform: translateY(-5px);
-        filter: blur(0.9px);
-        opacity: 0.7;
-      }
-      69% {
-        transform: translateY(5px);
-        filter: blur(0.9px);
-        opacity: 0.7;
-      }
-      /* Aterratge net amb rebot de parada */
-      88% {
-        transform: translateY(-1.5px);
-        filter: blur(0.2px);
-        opacity: 0.95;
-      }
-      100% {
-        transform: translateY(0);
-        filter: blur(0px);
-        opacity: 1;
-      }
-    }
-
-    @keyframes clockIconRollBack {
+    @keyframes clockIconHourSpin {
       0% { transform: rotate(0deg) scale(1); color: var(--accent-color); }
-      45% { transform: rotate(-180deg) scale(1.22); color: var(--accent-color); }
+      40% { transform: rotate(-180deg) scale(1.15); color: var(--accent-color); }
       100% { transform: rotate(-360deg) scale(1); color: #b4bcc8; }
     }
 
-    @keyframes clockIconRollFwd {
-      0% { transform: rotate(0deg) scale(1); color: var(--accent-color); }
-      45% { transform: rotate(180deg) scale(1.22); color: var(--accent-color); }
-      100% { transform: rotate(360deg) scale(1); color: #b4bcc8; }
+    /* Animació subtil dels números afectats: micro-salt de 3.5px amb lleuger desenfocament */
+    .clock-digits.tick-clac-back {
+      animation: digitTickBack 0.28s cubic-bezier(0.2, 0.9, 0.35, 1);
+    }
+
+    .clock-digits.tick-clac-fwd {
+      animation: digitTickFwd 0.28s cubic-bezier(0.2, 0.9, 0.35, 1);
+    }
+
+    @keyframes digitTickBack {
+      0% {
+        transform: translateY(0);
+        filter: blur(0px);
+        opacity: 1;
+      }
+      25% {
+        transform: translateY(3.5px);
+        filter: blur(0.7px);
+        opacity: 0.65;
+        color: var(--accent-color);
+      }
+      35% {
+        transform: translateY(-3px);
+        filter: blur(0.7px);
+        opacity: 0.7;
+        color: var(--accent-color);
+      }
+      70% {
+        transform: translateY(1px);
+        filter: blur(0px);
+        opacity: 0.95;
+      }
+      100% {
+        transform: translateY(0);
+        filter: blur(0px);
+        opacity: 1;
+      }
+    }
+
+    @keyframes digitTickFwd {
+      0% {
+        transform: translateY(0);
+        filter: blur(0px);
+        opacity: 1;
+      }
+      25% {
+        transform: translateY(-3.5px);
+        filter: blur(0.7px);
+        opacity: 0.65;
+        color: var(--accent-color);
+      }
+      35% {
+        transform: translateY(3px);
+        filter: blur(0.7px);
+        opacity: 0.7;
+        color: var(--accent-color);
+      }
+      70% {
+        transform: translateY(-1px);
+        filter: blur(0px);
+        opacity: 0.95;
+      }
+      100% {
+        transform: translateY(0);
+        filter: blur(0px);
+        opacity: 1;
+      }
     }
 
     .scrubber-wrap {
@@ -1351,7 +1311,7 @@
               <line id="clockMinuteHand" x1="12" y1="12" x2="12" y2="5.1" stroke-width="1.8"></line>
               <circle cx="12" cy="12" r="1.05" fill="currentColor" stroke="none"></circle>
             </svg>
-            <span id="listeningClock">--:--:--</span>
+            <span id="listeningClock" class="clock-time-wrap"><span class="clock-digits" id="clockHours">--</span><span class="clock-sep">:</span><span class="clock-digits" id="clockMinutes">--</span><span class="clock-sep">:</span><span class="clock-digits" id="clockSeconds">--</span></span>
           </div>
           <div class="time-actions">
             <button class="hour-jump-btn" id="hourJumpBtn" aria-label="Anar a l'última hora en punt">
@@ -1490,6 +1450,9 @@
     const clockHourHand = document.getElementById("clockHourHand");
     const clockMinuteHand = document.getElementById("clockMinuteHand");
     const listeningClock = document.getElementById("listeningClock");
+    const clockHours = document.getElementById("clockHours");
+    const clockMinutes = document.getElementById("clockMinutes");
+    const clockSeconds = document.getElementById("clockSeconds");
     const scrubberWrap = document.getElementById("scrubberWrap");
     const lagTag = document.getElementById("lagTag");
     const liveJumpBtn = document.getElementById("liveJumpBtn");
@@ -2189,25 +2152,66 @@
       }
     }
 
-    let clockAnimTimer = null;
+    let pendingSeekDirection = null;
+    let clockFlashTimer = null;
+
+    function animateDigitElement(el, direction) {
+      if (!el) return;
+      const animClass = direction === "back" ? "tick-clac-back" : "tick-clac-fwd";
+      el.classList.remove("tick-clac-back", "tick-clac-fwd");
+      void el.offsetWidth;
+      el.classList.add(animClass);
+      setTimeout(() => {
+        el.classList.remove("tick-clac-back", "tick-clac-fwd");
+      }, 300);
+    }
+
+    function updateListeningClockDisplay(dateObj) {
+      if (!dateObj) return;
+      const hStr = String(dateObj.getHours()).padStart(2, "0");
+      const mStr = String(dateObj.getMinutes()).padStart(2, "0");
+      const sStr = String(dateObj.getSeconds()).padStart(2, "0");
+
+      if (clockHours && clockMinutes && clockSeconds) {
+        const prevH = clockHours.textContent;
+        const prevM = clockMinutes.textContent;
+        const prevS = clockSeconds.textContent;
+
+        const direction = pendingSeekDirection;
+        pendingSeekDirection = null;
+
+        if (direction) {
+          if (hStr !== prevH) animateDigitElement(clockHours, direction);
+          if (mStr !== prevM) animateDigitElement(clockMinutes, direction);
+          if (sStr !== prevS) animateDigitElement(clockSeconds, direction);
+
+          if (clockDisplay) {
+            clockDisplay.classList.remove("clock-active-seek");
+            void clockDisplay.offsetWidth;
+            clockDisplay.classList.add("clock-active-seek");
+            if (clockFlashTimer) clearTimeout(clockFlashTimer);
+            clockFlashTimer = setTimeout(() => {
+              clockDisplay.classList.remove("clock-active-seek");
+            }, 350);
+          }
+        }
+
+        clockHours.textContent = hStr;
+        clockMinutes.textContent = mStr;
+        clockSeconds.textContent = sStr;
+      } else if (listeningClock) {
+        listeningClock.textContent = `${hStr}:${mStr}:${sStr}`;
+      }
+    }
+
     function triggerSeekAnimation(direction, btnElement = null) {
+      pendingSeekDirection = direction;
       showLagBubbleTemporarily(1400);
       scrubber.classList.add("seek-pulse");
       if (seekPulseTimer) clearTimeout(seekPulseTimer);
       seekPulseTimer = setTimeout(() => {
         scrubber.classList.remove("seek-pulse");
       }, 280);
-
-      if (clockDisplay) {
-        const animClass = direction === "back" ? "roll-clac-back" : "roll-clac-fwd";
-        clockDisplay.classList.remove("roll-clac-back", "roll-clac-fwd");
-        void clockDisplay.offsetWidth;
-        clockDisplay.classList.add(animClass);
-        if (clockAnimTimer) clearTimeout(clockAnimTimer);
-        clockAnimTimer = setTimeout(() => {
-          clockDisplay.classList.remove("roll-clac-back", "roll-clac-fwd");
-        }, 480);
-      }
 
       if (btnElement) {
         const animClass = direction === "back" ? "skip-anim-back" : "skip-anim-fwd";
@@ -2271,7 +2275,7 @@
         ? pausedAtEmissionMs
         : (liveEmissionMs - (lagSeconds * 1000));
       const emissionDate = new Date(emissionTimestamp);
-      listeningClock.textContent = formatCatalanTime(emissionDate);
+      updateListeningClockDisplay(emissionDate);
       updateAnalogClockHands(emissionDate, clockHourHand, clockMinuteHand);
       updateProgramForTimestamp(emissionTimestamp, lagSeconds > 15);
 
@@ -2649,8 +2653,8 @@
         pausedAtEmissionMs -= 10000;
       }
       audio.currentTime = Math.max(range.start, audio.currentTime - 10);
-      updateDvrClockUI();
       triggerSeekAnimation("back", back10Btn);
+      updateDvrClockUI();
     });
 
     fwd10Btn.addEventListener("click", () => {
@@ -2665,8 +2669,8 @@
         pausedAtEmissionMs = Math.min(liveEmissionMs, pausedAtEmissionMs + 10000);
       }
       audio.currentTime = Math.min(safeLiveEnd, audio.currentTime + 10);
-      updateDvrClockUI();
       triggerSeekAnimation("fwd", fwd10Btn);
+      updateDvrClockUI();
     });
 
     // Saltar a l'última hora en punt (o inici d'última roda a 3CatInfo)
@@ -2687,14 +2691,22 @@
       if (!isPlaying) {
         startPlayback(false);
       }
-      updateDvrClockUI();
       triggerSeekAnimation("back");
+      updateDvrClockUI();
 
       // Animació de volta completa a la fletxa del botó d'hora
       hourJumpBtn.classList.remove("is-spinning");
       void hourJumpBtn.offsetWidth;
       hourJumpBtn.classList.add("is-spinning");
       setTimeout(() => hourJumpBtn.classList.remove("is-spinning"), 600);
+
+      // Spin suau a la icona del rellotge analògic
+      if (clockDisplay) {
+        clockDisplay.classList.remove("clock-hour-jump");
+        void clockDisplay.offsetWidth;
+        clockDisplay.classList.add("clock-hour-jump");
+        setTimeout(() => clockDisplay.classList.remove("clock-hour-jump"), 600);
+      }
     });
 
     // Saltar de nou al directe viu (amb coixí anti-talls)
@@ -2709,8 +2721,8 @@
         if (!isPlaying) {
           startPlayback(false);
         }
-        updateDvrClockUI();
         triggerSeekAnimation("fwd");
+        updateDvrClockUI();
       } else {
         startPlayback(true);
       }
@@ -2743,7 +2755,7 @@
       const liveEmissionMs = Date.now() - (STREAM_DELAY_SECONDS * 1000);
       const emissionTimestamp = liveEmissionMs - (lagSeconds * 1000);
       const emissionDate = new Date(emissionTimestamp);
-      listeningClock.textContent = formatCatalanTime(emissionDate);
+      updateListeningClockDisplay(emissionDate);
       updateAnalogClockHands(emissionDate, clockHourHand, clockMinuteHand);
       updateProgramForTimestamp(emissionTimestamp, lagSeconds > 15);
       lagTag.textContent = formatLagBubbleText(lagSeconds);
