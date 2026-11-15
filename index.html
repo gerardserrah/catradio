@@ -125,8 +125,8 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding-top: calc(env(safe-area-inset-top, 20px) + 12px);
-      padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+      padding-top: calc(env(safe-area-inset-top, 20px) + 6px);
+      padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 8px), 18px);
       padding-left: 20px;
       padding-right: 20px;
       box-sizing: border-box;
@@ -473,7 +473,7 @@
 
     .top-bar {
       width: 100%;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
     }
 
     /* Connexió territorial */
@@ -481,7 +481,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-top: 14px;
+      margin-top: 8px;
       font-size: 13px;
       color: #e5e7eb;
     }
@@ -516,9 +516,10 @@
       align-items: center;
       text-align: center;
       flex: 1 1 auto;
+      min-height: 0;
       justify-content: center;
-      padding-top: 32px;
-      padding-bottom: 10px;
+      padding-top: 10px;
+      padding-bottom: 4px;
       transition:
         padding 0.45s cubic-bezier(0.25, 1, 0.5, 1),
         transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
@@ -527,12 +528,12 @@
     .artwork-wrapper {
       position: relative;
       z-index: 1;
-      width: min(320px, 78vw, 38vh);
-      height: min(320px, 78vw, 38vh);
+      width: min(285px, 72vw, 33vh);
+      height: min(285px, 72vw, 33vh);
       border-radius: 14px;
       background: #121212;
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
-      margin-bottom: 18px;
+      margin-bottom: 12px;
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -569,8 +570,8 @@
       flex-direction: column;
       align-items: center;
       width: 100%;
-      min-height: 72px;
-      margin-bottom: 14px;
+      min-height: 58px;
+      margin-bottom: 6px;
     }
 
     .program-title {
@@ -662,7 +663,7 @@
     /* Barra de Timeshift / Rellotge */
     .timeshift-box {
       width: 100%;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
       max-height: 80px;
       opacity: 1;
       transform: translateY(0);
@@ -835,7 +836,7 @@
       justify-content: center;
       gap: 32px;
       width: 100%;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
       transition:
         gap 0.42s cubic-bezier(0.25, 1, 0.5, 1),
         margin 0.42s cubic-bezier(0.25, 1, 0.5, 1);
@@ -848,8 +849,8 @@
     /* Transició fluida i ultra-suau en desconnexions territorials (només directe) */
     .app-shell.is-live-only .center-stage,
     body.is-live-only .center-stage {
-      padding-top: 14px !important;
-      padding-bottom: 14px !important;
+      padding-top: 8px !important;
+      padding-bottom: 8px !important;
     }
 
     .app-shell.is-live-only .timeshift-box,
@@ -876,8 +877,8 @@
     .app-shell.is-live-only .controls-row,
     body.is-live-only .controls-row {
       gap: 0 !important;
-      margin-top: 4px !important;
-      margin-bottom: 14px !important;
+      margin-top: 2px !important;
+      margin-bottom: 8px !important;
     }
 
     .skip-btn,
