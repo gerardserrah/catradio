@@ -85,9 +85,8 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      height: var(--app-height, 100dvh);
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
+      height: 100%;
+      height: -webkit-fill-available;
       background-color: var(--bg);
       color: var(--text);
       font-family: var(--font-main);
@@ -97,10 +96,14 @@
     body {
       margin: 0;
       padding: 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       width: 100%;
-      height: var(--app-height, 100dvh);
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
+      height: 100%;
+      height: -webkit-fill-available;
       display: flex;
       justify-content: center;
       background-color: var(--bg);
@@ -114,12 +117,15 @@
     .app-shell {
       width: 100%;
       max-width: 440px;
-      height: var(--app-height, 100dvh);
-      min-height: 100%;
+      height: 100%;
+      height: -webkit-fill-available;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: calc(env(safe-area-inset-top, 20px) + 12px) 20px calc(env(safe-area-inset-bottom, 16px) + 12px) 20px;
+      padding-top: calc(env(safe-area-inset-top, 20px) + 12px);
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+      padding-left: 20px;
+      padding-right: 20px;
       box-sizing: border-box;
     }
 
@@ -132,7 +138,8 @@
       .app-shell {
         max-width: 960px;
         width: 100%;
-        height: var(--app-height, 100dvh);
+        height: 100%;
+        height: -webkit-fill-available;
         min-height: 100%;
         display: grid;
         grid-template-columns: minmax(180px, 0.95fr) minmax(260px, 1.05fr);
@@ -144,7 +151,7 @@
         row-gap: 4px;
         align-items: center;
         padding-top: max(calc(env(safe-area-inset-top, 0px) + 6px), 10px);
-        padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 8px), 12px);
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
         padding-left: max(calc(env(safe-area-inset-left, 0px) + 16px), 24px);
         padding-right: max(calc(env(safe-area-inset-right, 0px) + 16px), 24px);
       }
@@ -943,9 +950,15 @@
       font-size: 12px;
       color: var(--accent-color);
       text-align: center;
-      min-height: 14px;
-      margin-bottom: 2px;
+      min-height: 0;
+      margin: 0;
       transition: color 0.3s ease;
+    }
+
+    .status-msg:not(:empty) {
+      min-height: 14px;
+      margin-top: 4px;
+      margin-bottom: 2px;
     }
 
     /* Peu amb reconnexió */
@@ -1107,10 +1120,9 @@
           </div>
           <div class="time-actions">
             <button class="hour-jump-btn" id="hourJumpBtn" aria-label="Anar a l'última hora en punt">
-              <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9.2" stroke-width="2.1"></circle>
-                <line id="hourBtnHourHand" x1="12" y1="12" x2="12" y2="7.5" stroke-width="2.2"></line>
-                <line id="hourBtnMinuteHand" x1="12" y1="12" x2="12" y2="5.1" stroke-width="1.8"></line>
+              <svg width="12.5" height="12.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
               </svg>
               <span id="hourJumpLabel">--:00</span>
             </button>
@@ -1242,8 +1254,6 @@
     const clockDisplay = document.getElementById("clockDisplay");
     const clockHourHand = document.getElementById("clockHourHand");
     const clockMinuteHand = document.getElementById("clockMinuteHand");
-    const hourBtnHourHand = document.getElementById("hourBtnHourHand");
-    const hourBtnMinuteHand = document.getElementById("hourBtnMinuteHand");
     const listeningClock = document.getElementById("listeningClock");
     const scrubberWrap = document.getElementById("scrubberWrap");
     const lagTag = document.getElementById("lagTag");
@@ -1255,17 +1265,8 @@
     const stationsGrid = document.getElementById("stationsGrid");
     const stationSliderPill = document.getElementById("stationSliderPill");
 
-    // Assegura el 100% de l'alçada visual en navegadors mòbils tant en vertical com en horitzontal
+    // Assegura la sincronització de la posició del selector d'emissores en canvis de mida o orientació
     function syncViewportHeight() {
-      const isStandalone = window.navigator.standalone === true ||
-        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
-      const vvHeight = window.visualViewport ? Math.round(window.visualViewport.height) : 0;
-      const innerH = Math.round(window.innerHeight || 0);
-      const clientH = Math.round(document.documentElement.clientHeight || 0);
-      const targetH = Math.max(innerH, clientH, vvHeight);
-      if (targetH > 0) {
-        document.documentElement.style.setProperty("--app-height", `${targetH}px`);
-      }
       requestAnimationFrame(() => updateStationPillToCurrent());
     }
 
@@ -1981,7 +1982,6 @@
       if (hourJumpLabel) {
         hourJumpLabel.textContent = lastHourDate.toLocaleTimeString("ca-ES", { hour: "2-digit", minute: "2-digit" });
       }
-      updateAnalogClockHands(lastHourDate, hourBtnHourHand, hourBtnMinuteHand);
       if (hourJumpBtn) {
         const labelHint = currentStation === "catinfo" ? "Anar a l'inici de l'última roda" : "Anar a l'última hora en punt";
         hourJumpBtn.title = labelHint;
