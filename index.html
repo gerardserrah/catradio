@@ -506,15 +506,16 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
-      margin: auto 0;
-      padding: 8px 0;
+      margin-top: auto;
+      margin-bottom: 20px;
+      padding: 10px 0 0 0;
     }
 
     .artwork-wrapper {
       position: relative;
       z-index: 1;
-      width: min(300px, 76vw, 38vh);
-      height: min(300px, 76vw, 38vh);
+      width: min(315px, 78vw, 39vh);
+      height: min(315px, 78vw, 39vh);
       border-radius: 14px;
       background: #121212;
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
@@ -555,7 +556,7 @@
       flex-direction: column;
       align-items: center;
       width: 100%;
-      min-height: 68px;
+      min-height: 72px;
     }
 
     .program-title {
@@ -2006,7 +2007,8 @@
 
     function updateArtworkScale() {
       if (!artworkWrapper) return;
-      const shouldShrink = !isPlaying || isScrubbing;
+      // No encongeixis la caràtula en canviar d'emissora si l'usuari vol reproduir
+      const shouldShrink = (!isPlaying && !userWantedPlaying) || isScrubbing;
       artworkWrapper.classList.toggle("is-shrunk", shouldShrink);
     }
 
