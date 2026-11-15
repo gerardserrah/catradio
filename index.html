@@ -1,12 +1,21 @@
 <!DOCTYPE html>
-<html lang="ca">
+<html lang="ca" style="background-color: #0a0a0a; background: #0a0a0a; color-scheme: dark;">
 <head>
   <meta charset="UTF-8" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0a0a0a" id="themeColorMeta" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="CatRàdio" />
-  <meta name="theme-color" content="#0a0a0a" id="themeColorMeta" />
+  <style>
+    :root, html, body {
+      background-color: #0a0a0a !important;
+      background: #0a0a0a !important;
+      color-scheme: dark !important;
+      color: #ffffff;
+    }
+  </style>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/png" href="/icona-catradio-light.png" media="(prefers-color-scheme: light)" />
   <link rel="icon" type="image/png" href="/icona-catradio-dark.png" media="(prefers-color-scheme: dark)" />
@@ -26,7 +35,7 @@
   </script>
   <title>CatRàdio Directe</title>
   <!-- hls.js per permetre Timeshift/DVR i memòria cau llarga en navegadors no-Safari -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" defer></script>
 
   <style>
     @font-face {
@@ -126,7 +135,7 @@
       flex-direction: column;
       justify-content: space-between;
       padding-top: calc(env(safe-area-inset-top, 20px) + 6px);
-      padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) - 8px), 14px);
+      padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) - 20px), 8px);
       padding-left: 20px;
       padding-right: 20px;
       box-sizing: border-box;
@@ -528,8 +537,10 @@
     .artwork-wrapper {
       position: relative;
       z-index: 1;
-      width: min(315px, 78vw, 38vh);
-      height: min(315px, 78vw, 38vh);
+      width: min(305px, 76vw, 36vh);
+      height: min(305px, 76vw, 36vh);
+      aspect-ratio: 1 / 1 !important;
+      flex-shrink: 0 !important;
       border-radius: 14px;
       background: #121212;
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
@@ -553,6 +564,7 @@
     .artwork {
       width: 100%;
       height: 100%;
+      aspect-ratio: 1 / 1 !important;
       object-fit: cover;
       object-position: center;
       display: block;
@@ -600,10 +612,8 @@
       font-size: 13px;
       color: #9ca3af;
       margin: 0;
-      max-width: 90%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      max-width: 94%;
+      line-height: 1.35;
       max-height: 0;
       opacity: 0;
       transform: translateY(3px);
@@ -617,7 +627,7 @@
 
     .program-context.is-visible {
       margin-top: 4px;
-      max-height: 22px;
+      max-height: 48px;
       opacity: 0.9;
       transform: translateY(0);
     }
@@ -836,7 +846,7 @@
       justify-content: center;
       gap: 32px;
       width: 100%;
-      margin-bottom: clamp(2px, 0.8vh, 6px);
+      margin-bottom: 0px;
       transition:
         gap 0.42s cubic-bezier(0.25, 1, 0.5, 1),
         margin 0.42s cubic-bezier(0.25, 1, 0.5, 1);
@@ -1027,27 +1037,7 @@
     }
 
     .status-msg {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 100%;
-      margin-top: 2px;
-      font-size: 11.5px;
-      font-weight: 500;
-      color: var(--accent-color);
-      text-align: center;
-      pointer-events: none;
-      white-space: nowrap;
-      opacity: 0;
-      transform: translateY(-2px);
-      transition: opacity 0.2s ease, transform 0.2s ease, color 0.3s ease;
-      min-height: 0;
-      margin: 0;
-    }
-
-    .status-msg:not(:empty) {
-      opacity: 1;
-      transform: translateY(0);
+      display: none !important;
     }
 
     /* Peu amb reconnexió */
@@ -1135,7 +1125,7 @@
     }
   </style>
 </head>
-<body>
+<body style="background-color: #0a0a0a; background: #0a0a0a;">
 
   <!-- Pantalla d'inici amb el llamp blanc animat sobre fons groc -->
   <div class="splash-screen" id="splashScreen" aria-hidden="true">
@@ -2441,9 +2431,7 @@
         tryAutoResumeAfterInterruption();
       }
     }, 2500);
-    audio.addEventListener("waiting", () => {
-      if (isPlaying) statusMsg.textContent = "Carregant àudio...";
-    });
+    audio.addEventListener("waiting", () => {});
 
     // Botó principal Play / Pause
     playBtn.addEventListener("click", () => {
