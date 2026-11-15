@@ -141,15 +141,15 @@
         height: -webkit-fill-available;
         min-height: 100%;
         display: grid;
-        grid-template-columns: minmax(180px, 0.95fr) minmax(260px, 1.05fr);
+        grid-template-columns: minmax(210px, 1.15fr) minmax(230px, 0.85fr);
         grid-template-rows: auto 1fr;
         grid-template-areas:
           "stage topbar"
           "stage bottomcontrols";
-        column-gap: 24px;
+        column-gap: 28px;
         row-gap: 4px;
         align-items: center;
-        padding-top: max(calc(env(safe-area-inset-top, 0px) + 6px), 10px);
+        padding-top: max(calc(env(safe-area-inset-top, 0px) + 12px), 16px);
         padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
         padding-left: max(calc(env(safe-area-inset-left, 0px) + 16px), 24px);
         padding-right: max(calc(env(safe-area-inset-right, 0px) + 16px), 24px);
@@ -172,6 +172,7 @@
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
+        margin-top: 6px !important;
         margin-bottom: 0 !important;
       }
 
@@ -184,7 +185,7 @@
       }
 
       .stations-grid {
-        margin-top: 0 !important;
+        margin-top: 4px !important;
         gap: 6px !important;
       }
 
@@ -193,8 +194,8 @@
       }
 
       .territorial-row {
-        margin-top: 4px !important;
-        margin-bottom: 2px !important;
+        margin-top: 14px !important;
+        margin-bottom: 4px !important;
         font-size: 12px !important;
       }
 
@@ -204,10 +205,10 @@
       }
 
       .artwork-wrapper {
-        width: min(195px, 46vh) !important;
-        height: min(195px, 46vh) !important;
+        width: min(230px, 52vh) !important;
+        height: min(230px, 52vh) !important;
         margin-bottom: 8px !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65) !important;
       }
 
       .artwork-wrapper.is-shrunk {
@@ -311,8 +312,8 @@
 
     @media (orientation: landscape) and (max-height: 380px) {
       .artwork-wrapper {
-        width: min(150px, 42vh) !important;
-        height: min(150px, 42vh) !important;
+        width: min(170px, 46vh) !important;
+        height: min(170px, 46vh) !important;
         margin-bottom: 4px !important;
       }
       .program-meta-box {
@@ -709,6 +710,68 @@
       animation: clockIconAccentFlash 0.55s ease;
     }
 
+    .clock-display.hour-jump-anim {
+      animation: clockHourJumpGlow 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .clock-display.hour-jump-anim #listeningClock {
+      display: inline-block;
+      animation: clockNumbersFlip 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .clock-display.hour-jump-anim .clock-icon {
+      animation: clockIconHourSpin 0.65s cubic-bezier(0.2, 0.85, 0.3, 1.15);
+    }
+
+    @keyframes clockHourJumpGlow {
+      0% { color: var(--accent-color); }
+      40% { color: var(--accent-color); text-shadow: 0 0 10px rgba(255, 209, 0, 0.45); }
+      100% { color: #d1d5db; text-shadow: none; }
+    }
+
+    @keyframes clockNumbersFlip {
+      0% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+        filter: blur(0px);
+      }
+      28% {
+        transform: translateY(-8px) scale(0.92);
+        opacity: 0.25;
+        filter: blur(1.5px);
+      }
+      34% {
+        transform: translateY(8px) scale(0.92);
+        opacity: 0.25;
+        filter: blur(1.5px);
+      }
+      70% {
+        transform: translateY(-1px) scale(1.06);
+        opacity: 1;
+        filter: blur(0px);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+        filter: blur(0px);
+      }
+    }
+
+    @keyframes clockIconHourSpin {
+      0% {
+        transform: rotate(0deg) scale(1);
+        color: var(--accent-color);
+      }
+      40% {
+        transform: rotate(-180deg) scale(1.22);
+        color: var(--accent-color);
+      }
+      100% {
+        transform: rotate(-360deg) scale(1);
+        color: #b4bcc8;
+      }
+    }
+
     @keyframes clockAccentFlash {
       0% { color: var(--accent-color); }
       55% { color: var(--accent-color); }
@@ -968,6 +1031,29 @@
       align-items: center;
       gap: 4px;
       transition: transform 0.12s ease, border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .hour-jump-btn svg {
+      transform-origin: center center;
+      will-change: transform;
+      flex-shrink: 0;
+    }
+
+    .hour-jump-btn.is-spinning svg {
+      animation: hourSpinRewind 0.58s cubic-bezier(0.2, 0.85, 0.3, 1.15);
+    }
+
+    @keyframes hourSpinRewind {
+      0% {
+        transform: rotate(0deg) scale(1);
+      }
+      35% {
+        transform: rotate(-180deg) scale(1.22);
+        color: var(--accent-color);
+      }
+      100% {
+        transform: rotate(-360deg) scale(1);
+      }
     }
 
     .hour-jump-btn:active {
@@ -2487,6 +2573,19 @@
       }
       updateDvrClockUI();
       triggerSeekAnimation("back");
+
+      // Animació de volta completa a la fletxa i efecte dinàmic als números del rellotge
+      hourJumpBtn.classList.remove("is-spinning");
+      void hourJumpBtn.offsetWidth;
+      hourJumpBtn.classList.add("is-spinning");
+      setTimeout(() => hourJumpBtn.classList.remove("is-spinning"), 600);
+
+      if (clockDisplay) {
+        clockDisplay.classList.remove("hour-jump-anim", "seek-nudge-left", "seek-nudge-right");
+        void clockDisplay.offsetWidth;
+        clockDisplay.classList.add("hour-jump-anim");
+        setTimeout(() => clockDisplay.classList.remove("hour-jump-anim"), 700);
+      }
     });
 
     // Saltar de nou al directe viu (amb coixí anti-talls)
