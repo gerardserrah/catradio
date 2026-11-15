@@ -1956,7 +1956,7 @@
         return;
       }
 
-      const TWENTY_MIN_MS = 20 * 60 * 1000;
+      const FIVE_MIN_MS = 5 * 60 * 1000;
       let effectiveEndMs = liveChannelData.endMs || null;
       if (!effectiveEndMs && liveChannelData.next) {
         const timeMatch = liveChannelData.next.match(/\b([01]?\d|2[0-3])[:.hH]([0-5]\d)\b/);
@@ -1970,7 +1970,7 @@
         }
       }
       const liveRemainingMs = effectiveEndMs ? (effectiveEndMs - emissionTimestampMs) : null;
-      const showLiveNext = liveRemainingMs !== null && liveRemainingMs > 0 && liveRemainingMs <= TWENTY_MIN_MS;
+      const showLiveNext = liveRemainingMs !== null && liveRemainingMs > 0 && liveRemainingMs <= FIVE_MIN_MS;
 
       const isIcat = currentStation === "icat";
       const currentProgramName = liveChannelData.programTitle || liveChannelData.title || st.name;
@@ -2033,7 +2033,7 @@
           const nextSlot = liveChannelData.schedule[idx + 1];
           const slotEndMs = slot.endMs || (nextSlot ? nextSlot.startMs : null);
           const remainingMs = slotEndMs ? (slotEndMs - emissionTimestampMs) : null;
-          const isWithin20Min = remainingMs !== null && remainingMs > 0 && remainingMs <= TWENTY_MIN_MS;
+          const isWithin5Min = remainingMs !== null && remainingMs > 0 && remainingMs <= FIVE_MIN_MS;
 
           const nextHourStr = nextSlot
             ? new Date(nextSlot.startMs).toLocaleTimeString("ca-ES", { hour: "2-digit", minute: "2-digit" })
@@ -2051,14 +2051,14 @@
             title: isSongPresent ? formatSongText(songForEmission.title) : (isSameAsLive ? (liveChannelData.title || slot.title) : slot.title),
             host: isSongPresent ? formatSongText(songForEmission.artist || currentProgramName) : ((isSameAsLive ? (liveChannelData.host || slot.host) : (slot.host || "")) || defaultSubtitle),
             artwork: isSongPresent ? (songForEmission.artwork || slot.artwork || liveChannelData.artwork) : (isSameAsLive ? (liveChannelData.artwork || slot.artwork) : (slot.artwork || liveChannelData.artwork)),
-            next: isWithin20Min ? candidateNext : "",
+            next: isWithin5Min ? candidateNext : "",
             programContext: isSongPresent ? currentProgramName : ""
           };
         }
       }
 
-      // Només mostrem "A continuació" quan s'està reproduint activament, no s'està fent scrub, no s'està canviant d'emissora i fa una estona que s'escolta la mateixa emissora
-      const isSwitchingStation = (Date.now() - lastStationSwitchTimestamp) < 20000;
+      // Només mostrem "A continuació" quan s'està reproduint activament, no s'està fent scrub ni arrossegant el selector d'emissores
+      const isSwitchingStation = (Date.now() - lastStationSwitchTimestamp) < 2000;
       const isStationDragging = Boolean(stationDragState);
       const visibleNext = (isPlaying && !isScrubbing && !isStationDragging && !isSwitchingStation) ? chosen.next : "";
 
@@ -3045,7 +3045,7 @@
     }
 
     clockTimer = setInterval(updateDvrClockUI, 250);
-    metadataTimer = setInterval(fetchLiveProgramMetadata, 45000);
+    metadataTimer = setInterval(fetchLiveProgramMetadata, 25000);
 
     // Intenta reproduir automàticament en entrar a la webapp
     startPlayback(false).then(() => {

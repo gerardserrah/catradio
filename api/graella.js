@@ -71,7 +71,7 @@ function recordSong(item) {
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "s-maxage=25, stale-while-revalidate=50");
+  res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=30");
 
   const isDebug = req.query && req.query.debug === "1";
 
@@ -530,6 +530,8 @@ export default async function handler(req, res) {
           host: result[m.key]?.host || host,
           artwork: result[m.key]?.artwork || artwork || null,
           next: result[m.key]?.next || nextText,
+          startMs: result[m.key]?.startMs || null,
+          endMs: result[m.key]?.endMs || null,
           schedule: result[m.key]?.schedule || []
         };
       }
@@ -742,50 +744,110 @@ export default async function handler(req, res) {
   try {
     let directesNextData = null;
 
-    const [directesRes, icatWsaRes, ocr1WsaRes] = await Promise.allSettled([
-      fetch("https://www.3cat.cat/3cat/directes/catalunya-radio/", { headers }),
+    const [crWsaRes, ocr1WsaRes, ciWsaRes, icatWsaRes, cmWsaRes, directesRes] = await Promise.allSettled([
+      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/cr/geo/cat", { headers }),
+      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/ocr1/geo/cat", { headers }),
+      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/ci/geo/cat", { headers }),
       fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/ic/geo/cat", { headers }),
-      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/ocr1/geo/cat", { headers })
+      fetch("https://dinamics.3cat.cat/wsarafem/arafem/radio/cm/geo/cat", { headers }),
+      fetch("https://www.3cat.cat/3cat/directes/catalunya-radio/", { headers })
     ]);
 
-    if (directesRes.status === "fulfilled" && directesRes.value.ok) {
-      const html = await directesRes.value.text();
-      const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-      if (nextDataMatch && nextDataMatch[1]) {
-        try {
-          directesNextData = JSON.parse(nextDataMatch[1]);
-          extractFromNextData(directesNextData, channels);
-        } catch (err) {
-          debugLog.push({ nextDataError: err.message });
+    function applyWsarafem(chKey, json) {
+      if (!json?.canal?.ara_fem) return;
+      const araFem = json.canal.ara_fem;
+      const despresFem = json.canal.despres_fem;
+
+      const title = araFem.titol_programa ? decodeHtmlEntities(araFem.titol_programa.trim()) : "";
+      const host = araFem.presentador ? decodeHtmlEntities(araFem.presentador.trim()) : lookupKnownHost(title);
+      const startMs = parseTimestampMs(araFem.start_time || araFem.data_inici);
+      const endMs = parseTimestampMs(araFem.end_time || araFem.data_fi);
+      const artwork = findSquareImageInObject(araFem);
+
+      let nextText = "";
+      let nextStartMs = null;
+      if (despresFem && typeof despresFem === "object") {
+        const nextTitle = despresFem.titol_programa || despresFem.titol || despresFem.programa;
+        nextStartMs = parseTimestampMs(despresFem.start_time || despresFem.data_inici);
+        let nextHour = despresFem.hora || despresFem.hora_inici || "";
+        if (!nextHour && nextStartMs) {
+          nextHour = new Date(nextStartMs).toLocaleTimeString("ca-ES", {
+            timeZone: "Europe/Madrid",
+            hour: "2-digit",
+            minute: "2-digit"
+          });
+        }
+        if (nextTitle) {
+          nextText = `A continuació: ${nextHour} ${nextTitle}`.replace(/\s+/g, " ").trim();
         }
       }
-      extractFromRenderedHtml(html, channels);
+
+      const effectiveEndMs = endMs || nextStartMs || null;
+
+      if (!channels[chKey]) {
+        channels[chKey] = {
+          title: title || "",
+          host: host || "",
+          artwork: artwork || (chKey === "catinfo" ? "/catinfo_cover.png" : null),
+          next: nextText,
+          startMs: startMs || null,
+          endMs: effectiveEndMs,
+          schedule: []
+        };
+      } else {
+        if (title) channels[chKey].title = title;
+        if (host) channels[chKey].host = host;
+        if (artwork) channels[chKey].artwork = artwork;
+        if (nextText) channels[chKey].next = nextText;
+        if (startMs) channels[chKey].startMs = startMs;
+        if (effectiveEndMs) channels[chKey].endMs = effectiveEndMs;
+      }
+    }
+
+    if (crWsaRes.status === "fulfilled" && crWsaRes.value.ok) {
+      try {
+        const crJson = await crWsaRes.value.json();
+        applyWsarafem("catradio", crJson);
+      } catch (err) {
+        debugLog.push({ crWsaError: err.message });
+      }
+    }
+
+    if (ocr1WsaRes.status === "fulfilled" && ocr1WsaRes.value.ok) {
+      try {
+        const ocrJson = await ocr1WsaRes.value.json();
+        applyWsarafem("digital", ocrJson);
+      } catch (err) {
+        debugLog.push({ ocr1WsaError: err.message });
+      }
+    }
+
+    if (ciWsaRes.status === "fulfilled" && ciWsaRes.value.ok) {
+      try {
+        const ciJson = await ciWsaRes.value.json();
+        applyWsarafem("catinfo", ciJson);
+      } catch (err) {
+        debugLog.push({ ciWsaError: err.message });
+      }
+    }
+
+    if (cmWsaRes.status === "fulfilled" && cmWsaRes.value.ok) {
+      try {
+        const cmJson = await cmWsaRes.value.json();
+        applyWsarafem("catmusica", cmJson);
+      } catch (err) {
+        debugLog.push({ cmWsaError: err.message });
+      }
     }
 
     if (icatWsaRes.status === "fulfilled" && icatWsaRes.value.ok) {
       try {
         const icatJson = await icatWsaRes.value.json();
+        applyWsarafem("icat", icatJson);
         const araFem = icatJson?.canal?.ara_fem;
         if (araFem) {
-          if (!channels.icat) {
-            channels.icat = {
-              id: "icat",
-              channel: "icat",
-              title: "iCat",
-              host: "iCat",
-              artwork: null
-            };
-          }
           if (araFem.titol_programa) {
             channels.icat.programTitle = decodeHtmlEntities(araFem.titol_programa.trim());
-            channels.icat.title = decodeHtmlEntities(araFem.titol_programa.trim());
-          }
-          if (araFem.presentador) {
-            channels.icat.host = decodeHtmlEntities(araFem.presentador.trim());
-          }
-          const progImg = findSquareImageInObject(araFem);
-          if (progImg) {
-            channels.icat.artwork = progImg;
           }
 
           const arasona = araFem.arasona;
@@ -832,34 +894,18 @@ export default async function handler(req, res) {
       }
     }
 
-    if (ocr1WsaRes.status === "fulfilled" && ocr1WsaRes.value.ok) {
-      try {
-        const ocrJson = await ocr1WsaRes.value.json();
-        const araFem = ocrJson?.canal?.ara_fem;
-        if (araFem) {
-          if (!channels.digital) {
-            channels.digital = {
-              id: "digital",
-              channel: "digital",
-              title: "CatRàdio Exclusiu Digital",
-              host: "",
-              artwork: null
-            };
-          }
-          if (araFem.titol_programa) {
-            channels.digital.title = decodeHtmlEntities(araFem.titol_programa.trim());
-          }
-          if (araFem.presentador) {
-            channels.digital.host = decodeHtmlEntities(araFem.presentador.trim());
-          }
-          const progImg = findSquareImageInObject(araFem);
-          if (progImg) {
-            channels.digital.artwork = progImg;
-          }
+    if (directesRes.status === "fulfilled" && directesRes.value.ok) {
+      const html = await directesRes.value.text();
+      const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+      if (nextDataMatch && nextDataMatch[1]) {
+        try {
+          directesNextData = JSON.parse(nextDataMatch[1]);
+          extractFromNextData(directesNextData, channels);
+        } catch (err) {
+          debugLog.push({ nextDataError: err.message });
         }
-      } catch (err) {
-        debugLog.push({ ocr1WsaError: err.message });
       }
+      extractFromRenderedHtml(html, channels);
     }
 
     if (channels.icat && !channels.icat.song && directesNextData) {
