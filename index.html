@@ -826,6 +826,30 @@
       pointer-events: none;
     }
 
+    /* Quan no hi ha reproductor d'endavant / endarrere (desconnexions territorials), centrem la miniatura */
+    .app-shell.is-live-only .center-stage,
+    body.is-live-only .center-stage {
+      margin-top: auto !important;
+      margin-bottom: auto !important;
+      padding-top: 0 !important;
+    }
+
+    .app-shell.is-live-only .timeshift-box,
+    body.is-live-only .timeshift-box {
+      display: none !important;
+    }
+
+    .app-shell.is-live-only .skip-btn,
+    body.is-live-only .skip-btn {
+      display: none !important;
+    }
+
+    .app-shell.is-live-only .controls-row,
+    body.is-live-only .controls-row {
+      margin-top: 0 !important;
+      margin-bottom: 8px !important;
+    }
+
     .skip-btn,
     .live-jump-btn {
       background: transparent;
@@ -1197,9 +1221,9 @@
         ambient: "rgba(255, 209, 0, 0.14)",
         urls: {
           barcelona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-hls/master.m3u8",
-          girona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-girona-hls/master.m3u8",
-          lleida: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-lleida-hls/master.m3u8",
-          tarragona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-tarragona-hls/master.m3u8"
+          girona: "https://directes-radio-int.3catdirectes.cat/live-content/catradio-girona-hls/master.m3u8",
+          lleida: "https://directes-radio-int.3catdirectes.cat/live-content/catradio-lleida-hls/master.m3u8",
+          tarragona: "https://directes-radio-int.3catdirectes.cat/live-content/catradio-tarragona-hls/master.m3u8"
         },
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyaradioHD.mp3"
       },
@@ -1353,6 +1377,10 @@
 
     function updateTimeshiftVisibility() {
       const supported = isTimeshiftSupported();
+      document.body.classList.toggle("is-live-only", !supported);
+      if (appShell) {
+        appShell.classList.toggle("is-live-only", !supported);
+      }
       timeshiftBox.classList.toggle("timeshift-hidden", !supported);
       back10Btn.classList.toggle("timeshift-hidden", !supported);
       fwd10Btn.classList.toggle("timeshift-hidden", !supported);
