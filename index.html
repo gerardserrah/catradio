@@ -141,15 +141,17 @@
         height: -webkit-fill-available;
         min-height: 100%;
         display: grid;
-        grid-template-columns: minmax(210px, 1.15fr) minmax(230px, 0.85fr);
-        grid-template-rows: auto 1fr;
+        grid-template-columns: minmax(260px, 1.25fr) minmax(270px, 0.95fr);
+        grid-template-rows: 1fr auto auto 1fr;
         grid-template-areas:
+          "stage spacer-top"
           "stage topbar"
-          "stage bottomcontrols";
-        column-gap: 28px;
-        row-gap: 4px;
+          "stage bottomcontrols"
+          "stage spacer-bottom";
+        column-gap: 32px;
+        row-gap: 0;
         align-items: center;
-        padding-top: max(calc(env(safe-area-inset-top, 0px) + 12px), 16px);
+        padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 12px);
         padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
         padding-left: max(calc(env(safe-area-inset-left, 0px) + 16px), 24px);
         padding-right: max(calc(env(safe-area-inset-right, 0px) + 16px), 24px);
@@ -163,7 +165,7 @@
         justify-content: center;
         text-align: center;
         margin: 0 !important;
-        padding: 0 8px 0 0 !important;
+        padding: 0 !important;
         height: 100%;
       }
 
@@ -171,8 +173,8 @@
         grid-area: topbar;
         display: flex;
         flex-direction: column;
-        justify-content: flex-end;
-        margin-top: 6px !important;
+        justify-content: center;
+        margin-top: 0 !important;
         margin-bottom: 0 !important;
       }
 
@@ -182,10 +184,11 @@
         flex-direction: column;
         justify-content: center;
         gap: 6px;
+        margin-top: 0 !important;
       }
 
       .stations-grid {
-        margin-top: 4px !important;
+        margin-top: 0 !important;
         gap: 6px !important;
       }
 
@@ -194,8 +197,8 @@
       }
 
       .territorial-row {
-        margin-top: 14px !important;
-        margin-bottom: 4px !important;
+        margin-top: 8px !important;
+        margin-bottom: 12px !important;
         font-size: 12px !important;
       }
 
@@ -205,10 +208,10 @@
       }
 
       .artwork-wrapper {
-        width: min(230px, 52vh) !important;
-        height: min(230px, 52vh) !important;
+        width: min(260px, 58vh) !important;
+        height: min(260px, 58vh) !important;
         margin-bottom: 8px !important;
-        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65) !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7) !important;
       }
 
       .artwork-wrapper.is-shrunk {
@@ -224,7 +227,7 @@
       }
 
       .program-title {
-        font-size: 16px !important;
+        font-size: 17px !important;
         margin-bottom: 2px !important;
         max-width: 95% !important;
         line-height: 1.2 !important;
@@ -312,8 +315,8 @@
 
     @media (orientation: landscape) and (max-height: 380px) {
       .artwork-wrapper {
-        width: min(170px, 46vh) !important;
-        height: min(170px, 46vh) !important;
+        width: min(190px, 50vh) !important;
+        height: min(190px, 50vh) !important;
         margin-bottom: 4px !important;
       }
       .program-meta-box {
@@ -557,6 +560,12 @@
       object-fit: cover;
       object-position: center;
       display: block;
+      opacity: 0;
+      transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .artwork.is-loaded {
+      opacity: 1;
     }
 
     .artwork.is-logo-fallback {
@@ -564,6 +573,12 @@
       height: 58%;
       object-fit: contain;
       filter: brightness(0) invert(1) opacity(0.35);
+      opacity: 0;
+      transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .artwork.is-logo-fallback.is-loaded {
+      opacity: 0.35;
     }
 
     .program-meta-box {
@@ -1250,7 +1265,7 @@
     <!-- Zona central: Caràtula i títol del programa -->
     <div class="center-stage">
       <div class="artwork-wrapper is-shrunk" id="artworkWrapper">
-        <img id="artwork" class="artwork is-logo-fallback" src="https://statics.3cat.cat/recursos/3cat/logos/web/catradio.svg" alt="Programa" />
+        <img id="artwork" class="artwork" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E" alt="Programa" />
       </div>
       <div class="program-meta-box">
         <h1 class="program-title" id="programTitle">Catalunya Ràdio</h1>
@@ -1743,10 +1758,25 @@
       const token = ++artworkLoadToken;
 
       if (!url) {
-        artwork.onerror = null;
-        artwork.onload = null;
-        artwork.src = fallbackLogo;
-        artwork.classList.add("is-logo-fallback");
+        if (!fallbackLogo) {
+          artwork.classList.remove("is-loaded");
+          artwork.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3C/svg%3E";
+          return;
+        }
+        const preloader = new Image();
+        preloader.onload = () => {
+          if (token !== artworkLoadToken) return;
+          artwork.onerror = null;
+          artwork.onload = null;
+          artwork.src = fallbackLogo;
+          artwork.classList.add("is-logo-fallback");
+          artwork.classList.add("is-loaded");
+        };
+        preloader.onerror = () => {
+          if (token !== artworkLoadToken) return;
+          artwork.classList.remove("is-loaded");
+        };
+        preloader.src = fallbackLogo;
         return;
       }
 
@@ -1757,14 +1787,29 @@
         artwork.onload = null;
         artwork.src = url;
         artwork.classList.remove("is-logo-fallback");
+        artwork.classList.add("is-loaded");
       };
       preloader.onerror = () => {
         if (token !== artworkLoadToken) return;
         currentArtworkTarget = `logo:${fallbackLogo}`;
-        artwork.onerror = null;
-        artwork.onload = null;
-        artwork.src = fallbackLogo;
-        artwork.classList.add("is-logo-fallback");
+        if (!fallbackLogo) {
+          artwork.classList.remove("is-loaded");
+          return;
+        }
+        const fallbackPreloader = new Image();
+        fallbackPreloader.onload = () => {
+          if (token !== artworkLoadToken) return;
+          artwork.onerror = null;
+          artwork.onload = null;
+          artwork.src = fallbackLogo;
+          artwork.classList.add("is-logo-fallback");
+          artwork.classList.add("is-loaded");
+        };
+        fallbackPreloader.onerror = () => {
+          if (token !== artworkLoadToken) return;
+          artwork.classList.remove("is-loaded");
+        };
+        fallbackPreloader.src = fallbackLogo;
       };
       preloader.src = url;
     }
