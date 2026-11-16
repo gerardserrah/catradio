@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ca" style="background-color: #0a0a0a; background: #0a0a0a; color-scheme: dark;">
+<html lang="ca" style="background-color: #0a0a0a; color-scheme: dark;">
 <head>
   <meta charset="UTF-8" />
   <meta name="color-scheme" content="dark" />
@@ -11,7 +11,6 @@
   <style>
     :root, html, body {
       background-color: #0a0a0a !important;
-      background: #0a0a0a !important;
       color-scheme: dark !important;
       color: #ffffff;
     }
@@ -68,7 +67,13 @@
       --accent-color: #ffd100;
       --text: #ffffff;
       --muted: #9ca3af;
-      --ambient-color: rgba(255, 209, 0, 0.14);
+      --ambient-color: rgba(255, 209, 0, 0.18);
+    }
+
+    @property --ambient-color {
+      syntax: "<color>";
+      inherits: true;
+      initial-value: rgba(255, 209, 0, 0.18);
     }
 
     * {
@@ -108,7 +113,7 @@
       color: var(--text);
       font-family: var(--font-main);
       overflow: hidden;
-      transition: background 0.5s ease;
+      transition: --ambient-color 0.6s ease;
     }
 
     .app-shell {
@@ -1260,7 +1265,7 @@
     }
   </style>
 </head>
-<body style="background-color: #0a0a0a; background: #0a0a0a;">
+<body>
 
   <!-- Pantalla d'inici amb el llamp blanc animat sobre fons groc -->
   <div class="splash-screen" id="splashScreen" aria-hidden="true">
@@ -1401,7 +1406,7 @@
         pvideoId: "cr",
         logo: "/logos/catradio.svg",
         accent: "#FFD100",
-        ambient: "rgba(255, 209, 0, 0.14)",
+        ambient: "rgba(255, 209, 0, 0.18)",
         urls: {
           barcelona: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-radio-hls/master.m3u8",
           girona: "https://directes-radio-int.3catdirectes.cat/live-content/catradio-girona-hls/master.m3u8",
@@ -1415,7 +1420,7 @@
         pvideoId: "ocr1",
         logo: "/logos/exclusiudigital.svg",
         accent: "#F5A800",
-        ambient: "rgba(245, 168, 0, 0.14)",
+        ambient: "rgba(245, 168, 0, 0.18)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/radio-oca-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyaradioHD.mp3"
       },
@@ -1424,7 +1429,7 @@
         pvideoId: "ci",
         logo: "/logos/info.svg",
         accent: "#F25400",
-        ambient: "rgba(242, 84, 0, 0.14)",
+        ambient: "rgba(242, 84, 0, 0.18)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-informacio-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyainformacioHD.mp3"
       },
@@ -1433,7 +1438,7 @@
         pvideoId: "ic",
         logo: "/logos/icat.svg",
         accent: "#C4162A",
-        ambient: "rgba(196, 22, 42, 0.16)",
+        ambient: "rgba(196, 22, 42, 0.20)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/icat-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/icatHD.mp3"
       },
@@ -1442,7 +1447,7 @@
         pvideoId: "cm",
         logo: "/logos/catmus.svg",
         accent: "#429B2B",
-        ambient: "rgba(66, 155, 43, 0.15)",
+        ambient: "rgba(66, 155, 43, 0.18)",
         url: "https://directes-radio-int.3catdirectes.cat/live-content/catalunya-musica-hls/master.m3u8",
         fallbackMp3: "https://shoutcast.ccma.cat/ccma/catalunyamusicaHD.mp3"
       }
@@ -2865,6 +2870,7 @@
         b.classList.toggle("active", b.dataset.id === newId);
       });
       document.documentElement.style.setProperty("--ambient-color", STREAMS[currentStation].ambient);
+      document.body.style.setProperty("--ambient-color", STREAMS[currentStation].ambient);
       document.documentElement.style.setProperty("--accent-color", STREAMS[currentStation].accent);
       playBtn.classList.toggle("light-icon", ["catinfo", "icat", "catmusica"].includes(currentStation));
       territorialRow.style.visibility = currentStation === "catradio" ? "visible" : "hidden";
@@ -3021,6 +3027,7 @@
     });
 
     // Inicialització
+    applyStationThemeAndMetadata(currentStation, false);
     updateStationPillToCurrent();
     updateTimeshiftVisibility();
     fetchLiveProgramMetadata();
