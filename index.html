@@ -1687,13 +1687,52 @@
       }
     ];
 
+    function isLegitimateIcatSong(item, programTitle) {
+      if (!item || typeof item !== "object") return false;
+      const title = (item.title || item.titol || "").trim();
+      const artist = (item.artist || item.artista || "").trim();
+      if (!title) return false;
+
+      // 1. Verificació directa de 3Cat: si ve marcat com ccmaarasona: NO és un indicatiu o tall no musical
+      if (item.ccmaarasona && String(item.ccmaarasona).toUpperCase() === "NO") {
+        return false;
+      }
+
+      // 2. A iCat, totes les cançons comercials tenen artista catalogat. Si no té artista, és un tall de producció/efecte
+      if (!artist) {
+        return false;
+      }
+
+      // 3. Patrons de nomenclatura interna de disc i continuïtat (Galaxy / Dalet de Catalunya Ràdio)
+      const internalPrefixRegex = /^(X\/|T\/|IND\b|INDICATIU\b|SINT\b|SINTO\b|SINTONIA\b|RAF\b|RAFEGA\b|RÀFEGA\b|CARETA\b|AUTOPROMO\b|PROMO\b|PUBLICITAT\b|TALL\b|SECCIO\b|SECCIÓ\b|FX\b)/i;
+      if (internalPrefixRegex.test(title) || internalPrefixRegex.test(artist)) {
+        return false;
+      }
+
+      // 4. Si el títol és igual al nom del programa o de l'emissora
+      const normTitle = title.toLowerCase();
+      if (normTitle === "icat" || normTitle === "catalunya ràdio") return false;
+      if (programTitle && normTitle === programTitle.trim().toLowerCase()) return false;
+
+      // 5. Durada d'efecte o ràfega (menys de 35 segons) si ve informada
+      if (item.durada && typeof item.durada === "string") {
+        const parts = item.durada.split(":").map(Number);
+        if (parts.length === 3) {
+          const sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+          if (sec > 0 && sec < 35) return false;
+        }
+      }
+
+      return true;
+    }
+
     try {
       const cachedSongs = localStorage.getItem("catradio_icat_songs_history");
       if (cachedSongs) {
         const parsed = JSON.parse(cachedSongs);
         if (Array.isArray(parsed) && parsed.length > 0) {
           parsed.forEach((s) => {
-            if (!icatSongHistory.some((ex) => ex.title.toLowerCase() === s.title.toLowerCase() && Math.abs((ex.startMs || 0) - (s.startMs || 0)) < 30000)) {
+            if (isLegitimateIcatSong(s) && !icatSongHistory.some((ex) => ex.title.toLowerCase() === s.title.toLowerCase() && Math.abs((ex.startMs || 0) - (s.startMs || 0)) < 30000)) {
               icatSongHistory.push(s);
             }
           });
@@ -1703,7 +1742,7 @@
     } catch (e) {}
 
     function recordIcatSong(songObj) {
-      if (!songObj || !songObj.title) return;
+      if (!songObj || !isLegitimateIcatSong(songObj, allChannelsData?.icat?.programTitle)) return;
       const sTitle = songObj.title.trim().toLowerCase();
       const sStart = songObj.startMs || (songObj.startTime ? Date.parse(songObj.startTime) : null);
       const sEnd = songObj.endMs || (songObj.endTime ? Date.parse(songObj.endTime) : (sStart ? sStart + 180000 : null));
@@ -1753,21 +1792,24 @@
         if (araFem.titol_programa) {
           const prog = araFem.titol_programa.trim();
           allChannelsData.icat.programTitle = prog;
-          if (!allChannelsData.icat.title || allChannelsData.icat.title === "iCat") {
-            allChannelsData.icat.title = prog;
-          }
+          allChannelsData.icat.title = prog;
         }
-        if (araFem.presentador && (!allChannelsData.icat.host || allChannelsData.icat.host === "iCat")) {
+        if (araFem.presentador) {
           allChannelsData.icat.host = araFem.presentador.trim();
         }
 
-        if (!allChannelsData.icat.artwork && Array.isArray(araFem.imatges)) {
-          const square = araFem.imatges.find((im) => im.mida === "314x314" || im.mida === "300x300");
-          if (square?.text) allChannelsData.icat.artwork = square.text;
+        // Selecció de la millor imatge oficial del programa (quadrada)
+        if (Array.isArray(araFem.imatges) && araFem.imatges.length > 0) {
+          const square = araFem.imatges.find((im) => im.mida === "1400x1400" || im.mida === "314x314" || im.mida === "300x300") || araFem.imatges[0];
+          if (square?.text) {
+            let img = square.text;
+            if (img.includes("statics.ccma.cat")) img = img.replace("statics.ccma.cat", "statics.3cat.cat");
+            allChannelsData.icat.artwork = img;
+          }
         }
 
         const arasona = araFem.arasona;
-        if (arasona && arasona.titol && typeof arasona.titol === "string" && arasona.titol.trim()) {
+        if (arasona && isLegitimateIcatSong(arasona, allChannelsData.icat.programTitle)) {
           let rawImg = (Array.isArray(arasona.imatges) && arasona.imatges[0] && arasona.imatges[0].text) || null;
           if (rawImg && rawImg.includes("statics.ccma.cat")) {
             rawImg = rawImg.replace("statics.ccma.cat", "statics.3cat.cat");
@@ -1790,7 +1832,7 @@
         }
 
         const despres = araFem.despressona;
-        if (despres && despres.titol && typeof despres.titol === "string" && despres.titol.trim()) {
+        if (despres && isLegitimateIcatSong(despres, allChannelsData.icat.programTitle)) {
           let rawImgNext = (Array.isArray(despres.imatges) && despres.imatges[0] && despres.imatges[0].text) || null;
           if (rawImgNext && rawImgNext.includes("statics.ccma.cat")) {
             rawImgNext = rawImgNext.replace("statics.ccma.cat", "statics.3cat.cat");
@@ -1983,11 +2025,12 @@
       // Determinació de la cançó segons si és directe o un instant anterior (timeshift)
       let songForEmission = null;
       if (isIcat) {
-        if (!isHistorical && liveChannelData.song && liveChannelData.song.title) {
+        if (!isHistorical && liveChannelData.song && isLegitimateIcatSong(liveChannelData.song, currentProgramName)) {
           songForEmission = liveChannelData.song;
         } else if (Array.isArray(icatSongHistory) && icatSongHistory.length > 0) {
           // Busquem si hi ha alguna cançó que coincidís amb l'instant d'emissió
           const match = icatSongHistory.find((s) => {
+            if (!isLegitimateIcatSong(s, currentProgramName)) return false;
             const start = s.startMs || (s.startTime ? Date.parse(s.startTime) : null);
             const end = s.endMs || (s.endTime ? Date.parse(s.endTime) : (start ? start + 180000 : null));
             if (!start || !end) return false;
@@ -2000,6 +2043,7 @@
             let closest = null;
             let minDiff = Infinity;
             for (const s of icatSongHistory) {
+              if (!isLegitimateIcatSong(s, currentProgramName)) continue;
               const start = s.startMs || (s.startTime ? Date.parse(s.startTime) : null);
               const end = s.endMs || (s.endTime ? Date.parse(s.endTime) : (start ? start + 180000 : null));
               if (!start) continue;

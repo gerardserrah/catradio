@@ -46,8 +46,47 @@ const icatSongHistory = [
   }
 ];
 
-function recordSong(item) {
-  if (!item || !item.title) return;
+function isLegitimateIcatSong(item, programTitle) {
+  if (!item || typeof item !== "object") return false;
+  const title = (item.title || item.titol || "").trim();
+  const artist = (item.artist || item.artista || "").trim();
+  if (!title) return false;
+
+  // 1. Verificació directa de 3Cat: si ve marcat com ccmaarasona: NO és un indicatiu o tall no musical
+  if (item.ccmaarasona && String(item.ccmaarasona).toUpperCase() === "NO") {
+    return false;
+  }
+
+  // 2. A iCat, totes les cançons de repertori musical tenen artista. Si no té artista, és un arxiu intern de veu o producció
+  if (!artist) {
+    return false;
+  }
+
+  // 3. Patrons de nomenclatura interna de continuïtat (Galaxy / Dalet de Catalunya Ràdio)
+  const internalPrefixRegex = /^(X\/|T\/|IND\b|INDICATIU\b|SINT\b|SINTO\b|SINTONIA\b|RAF\b|RAFEGA\b|RÀFEGA\b|CARETA\b|AUTOPROMO\b|PROMO\b|PUBLICITAT\b|TALL\b|SECCIO\b|SECCIÓ\b|FX\b)/i;
+  if (internalPrefixRegex.test(title) || internalPrefixRegex.test(artist)) {
+    return false;
+  }
+
+  // 4. Si el títol és igual al nom del programa o de l'emissora
+  const normTitle = title.toLowerCase();
+  if (normTitle === "icat" || normTitle === "catalunya ràdio") return false;
+  if (programTitle && normTitle === programTitle.trim().toLowerCase()) return false;
+
+  // 5. Durada d'efecte o ràfega (menys de 35 segons) si ve informada
+  if (item.durada && typeof item.durada === "string") {
+    const parts = item.durada.split(":").map(Number);
+    if (parts.length === 3) {
+      const sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (sec > 0 && sec < 35) return false;
+    }
+  }
+
+  return true;
+}
+
+function recordSong(item, programTitle) {
+  if (!item || !isLegitimateIcatSong(item, programTitle)) return;
   const itemStart = item.startMs || (item.startTime ? Date.parse(item.startTime) : null);
   const idx = icatSongHistory.findIndex((s) => {
     if (s.title.toLowerCase() !== item.title.toLowerCase()) return false;
@@ -850,8 +889,9 @@ export default async function handler(req, res) {
             channels.icat.programTitle = decodeHtmlEntities(araFem.titol_programa.trim());
           }
 
+          const progTitle = channels.icat.programTitle || "";
           const arasona = araFem.arasona;
-          if (arasona && arasona.titol && typeof arasona.titol === "string" && arasona.titol.trim()) {
+          if (arasona && isLegitimateIcatSong(arasona, progTitle)) {
             const rawImg = (Array.isArray(arasona.imatges) && arasona.imatges[0] && arasona.imatges[0].text) || null;
             const startMs = arasona.start_time ? Date.parse(arasona.start_time) : null;
             const endMs = arasona.end_time ? Date.parse(arasona.end_time) : null;
@@ -865,13 +905,13 @@ export default async function handler(req, res) {
               endMs: isNaN(endMs) ? null : endMs
             };
             channels.icat.song = currentSong;
-            recordSong(currentSong);
+            recordSong(currentSong, progTitle);
           } else {
             channels.icat.song = null;
           }
 
           const despressona = araFem.despressona;
-          if (despressona && despressona.titol && typeof despressona.titol === "string" && despressona.titol.trim()) {
+          if (despressona && isLegitimateIcatSong(despressona, progTitle)) {
             const rawImgNext = (Array.isArray(despressona.imatges) && despressona.imatges[0] && despressona.imatges[0].text) || null;
             const startMsNext = despressona.start_time ? Date.parse(despressona.start_time) : null;
             const endMsNext = despressona.end_time ? Date.parse(despressona.end_time) : null;
@@ -884,7 +924,7 @@ export default async function handler(req, res) {
               startMs: isNaN(startMsNext) ? null : startMsNext,
               endMs: isNaN(endMsNext) ? null : endMsNext
             };
-            recordSong(nextSong);
+            recordSong(nextSong, progTitle);
           }
 
           channels.icat.songs = icatSongHistory;
